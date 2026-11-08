@@ -7,7 +7,7 @@
 
 <!-- App-Installation -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a6b57">
+<meta name="theme-color" content="#0a4c8a">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -42,7 +42,7 @@
 <div id="app" class="hide">
   <header>
     <h1>Finanzplaner</h1>
-    <select id="cu" onchange="D.cur=this.value;sv();R()"><option>CHF</option><option>EUR</option><option>USD</option><option>GBP</option></select>
+    <div class="hr"><button id="th" class="ib" onclick="cycleTheme()" aria-label="Darstellung wechseln">◐</button><select id="cu" onchange="D.cur=this.value;sv();R()"><option>CHF</option><option>EUR</option><option>USD</option><option>GBP</option></select></div>
   </header>
   <div id="bn" class="hide"></div>
   <div id="v"></div>
