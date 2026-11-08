@@ -7,11 +7,12 @@
 
 <!-- App-Installation -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#2f6fed">
+<meta name="theme-color" content="#0a6b57">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 
-<!-- Design -->
+<!-- Schriften und Design -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,56 +20,36 @@
 
 <!-- Anmeldung -->
 <div id="login" class="hide">
-  <h1>💶 Finanzplaner</h1>
-  <div class="card">
+  <h1>Finanzplaner</h1>
+  <div class="card" style="margin-top:14px">
     <h2>Anmelden oder registrieren</h2>
-    <input id="em" type="email" autocomplete="email" placeholder="E-Mail">
-    <input id="pw" type="password" autocomplete="current-password" placeholder="Passwort (mind. 6 Zeichen)">
+    <p class="s">Mit deinem Konto sind deine Daten auf Handy und Laptop gleich.</p>
+    <label for="em">E-Mail</label>
+    <input id="em" type="email" autocomplete="email">
+    <label for="pw">Passwort (mind. 6 Zeichen)</label>
+    <input id="pw" type="password" autocomplete="current-password">
     <div class="two">
-      <button class="p" onclick="signIn()">Anmelden</button>
-      <button class="p second" onclick="signUp()">Registrieren</button>
+      <button class="btn" onclick="signIn()">Anmelden</button>
+      <button class="btn ghost" onclick="signUp()">Registrieren</button>
     </div>
+    <button class="lk" onclick="reset()">Passwort vergessen?</button>
     <div class="err" id="lerr"></div>
+    <div class="ok2" id="lok"></div>
   </div>
 </div>
 
 <!-- App -->
 <div id="app" class="hide">
-  <div class="top">
-    <h1>💶 Finanzplaner</h1>
-    <button onclick="auth.signOut()">Abmelden</button>
-  </div>
-
-  <div class="nav">
-    <button onclick="shift(-1)" aria-label="Voriger Monat">‹</button>
-    <b id="mlabel"></b>
-    <button onclick="shift(1)" aria-label="Nächster Monat">›</button>
-  </div>
-
-  <div class="sum">
-    <div><small>Einnahmen</small><strong class="in" id="sin"></strong></div>
-    <div><small>Ausgaben</small><strong class="ex" id="sex"></strong></div>
-    <div><small>Saldo</small><strong id="sbal"></strong></div>
-  </div>
-
-  <div class="card" style="margin-top:12px">
-    <div class="seg">
-      <button id="bEx" class="on" onclick="setType('Ausgabe')">Ausgabe</button>
-      <button id="bIn" onclick="setType('Einnahme')">Einnahme</button>
-    </div>
-    <input id="amt" type="text" inputmode="decimal" placeholder="Betrag in € (z. B. 12,50)">
-    <select id="cat"></select>
-    <input id="dat" type="date">
-    <input id="note" type="text" placeholder="Notiz (optional)">
-    <button class="p" onclick="add()">Hinzufügen</button>
-    <div class="err" id="aerr"></div>
-  </div>
-
-  <div class="card"><h2>Ausgaben nach Kategorie</h2><div id="cats"></div></div>
-  <div class="card"><h2>Buchungen</h2><div id="list"></div></div>
+  <header>
+    <h1>Finanzplaner</h1>
+    <select id="cu" onchange="D.cur=this.value;sv();R()"><option>CHF</option><option>EUR</option><option>USD</option><option>GBP</option></select>
+  </header>
+  <div id="bn" class="hide"></div>
+  <div id="v"></div>
 </div>
 
 </main>
+<nav id="nv" class="hide"></nav>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>

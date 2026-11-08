@@ -1,7 +1,8 @@
 // Service Worker: macht die App installierbar und startet sie auch ohne Internet.
 // Strategie: erst Netzwerk (damit Änderungen sofort ankommen), sonst gespeicherte Kopie.
-var CACHE = "finanzplaner-v1";
+var CACHE = "finanzplaner-v2";
 var SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+var HOSTS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }));
@@ -21,9 +22,8 @@ self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET") return;
   var url = new URL(req.url);
-  // Nur eigene Dateien und die Firebase-Skripte zwischenspeichern, keine Datenbank-Anfragen.
-  var ok = url.origin === self.location.origin || url.hostname === "www.gstatic.com";
-  if (!ok) return;
+  // Nur eigene Dateien, Firebase-Skripte und Schriften zwischenspeichern, keine Datenbank-Anfragen.
+  if (url.origin !== self.location.origin && HOSTS.indexOf(url.hostname) < 0) return;
   e.respondWith(
     fetch(req)
       .then(function (res) {
