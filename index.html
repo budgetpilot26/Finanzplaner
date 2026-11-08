@@ -4,160 +4,78 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Finanzplaner</title>
-<style>
-:root{color-scheme:light dark;--bg:#f4f6f9;--card:#fff;--tx:#1b1f24;--mu:#6b7480;--bd:#e1e5ea;--ac:#2f6fed;--in:#1f9d61;--ex:#d6453d}
-@media (prefers-color-scheme:dark){:root{--bg:#12151a;--card:#1b2027;--tx:#eef1f5;--mu:#97a1ae;--bd:#2a313a;--ac:#6b9bff;--in:#4cc88a;--ex:#ff7b72}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-main{max-width:560px;margin:0 auto;padding:16px}
-h1{font-size:22px;margin:4px 0 12px}
-.top{display:flex;justify-content:space-between;align-items:center}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
-.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.nav b{text-transform:capitalize}
-button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px}
-button.p{background:var(--ac);border-color:var(--ac);color:#fff;width:100%;margin-top:8px;padding:11px;font-weight:600}
-.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.sum div{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px}
-.sum small{color:var(--mu);display:block;font-size:12px}
-.sum strong{font-size:15px}
-.in{color:var(--in)}.ex{color:var(--ex)}
-.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-.seg button.on{background:var(--ac);border-color:var(--ac);color:#fff}
-input,select{width:100%;font:inherit;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);margin-top:8px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--bd)}
-.row:last-child{border-bottom:0}
-.row small{color:var(--mu);display:block}
-.row button{padding:4px 9px;color:var(--mu)}
-.bar{height:8px;border-radius:4px;background:var(--bd);margin:4px 0 10px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--ac)}
-.cat{display:flex;justify-content:space-between;font-size:14px}
-h2{font-size:16px;margin:0 0 8px}
-.empty{color:var(--mu);font-size:14px}
-.err{color:var(--ex);font-size:14px;margin-top:8px;min-height:1em}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.two button.p{margin-top:8px}
-.hide{display:none}
-</style>
+
+<!-- App-Installation -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6fed">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Design -->
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main>
 
 <!-- Anmeldung -->
 <div id="login" class="hide">
-<h1>💶 Finanzplaner</h1>
-<div class="card">
-<h2>Anmelden oder registrieren</h2>
-<input id="em" type="email" autocomplete="email" placeholder="E-Mail">
-<input id="pw" type="password" autocomplete="current-password" placeholder="Passwort (mind. 6 Zeichen)">
-<div class="two">
-<button class="p" onclick="signIn()">Anmelden</button>
-<button class="p" style="background:var(--card);color:var(--tx);border-color:var(--bd)" onclick="signUp()">Registrieren</button>
-</div>
-<div class="err" id="lerr"></div>
-</div>
+  <h1>💶 Finanzplaner</h1>
+  <div class="card">
+    <h2>Anmelden oder registrieren</h2>
+    <input id="em" type="email" autocomplete="email" placeholder="E-Mail">
+    <input id="pw" type="password" autocomplete="current-password" placeholder="Passwort (mind. 6 Zeichen)">
+    <div class="two">
+      <button class="p" onclick="signIn()">Anmelden</button>
+      <button class="p second" onclick="signUp()">Registrieren</button>
+    </div>
+    <div class="err" id="lerr"></div>
+  </div>
 </div>
 
 <!-- App -->
 <div id="app" class="hide">
-<div class="top"><h1>💶 Finanzplaner</h1><button onclick="auth.signOut()">Abmelden</button></div>
-<div class="nav"><button onclick="shift(-1)" aria-label="Voriger Monat">‹</button><b id="mlabel"></b><button onclick="shift(1)" aria-label="Nächster Monat">›</button></div>
-<div class="sum">
-<div><small>Einnahmen</small><strong class="in" id="sin"></strong></div>
-<div><small>Ausgaben</small><strong class="ex" id="sex"></strong></div>
-<div><small>Saldo</small><strong id="sbal"></strong></div>
-</div>
-<div class="card" style="margin-top:12px">
-<div class="seg"><button id="bEx" class="on" onclick="setType('Ausgabe')">Ausgabe</button><button id="bIn" onclick="setType('Einnahme')">Einnahme</button></div>
-<input id="amt" type="text" inputmode="decimal" placeholder="Betrag in € (z. B. 12,50)">
-<select id="cat"></select>
-<input id="dat" type="date">
-<input id="note" type="text" placeholder="Notiz (optional)">
-<button class="p" onclick="add()">Hinzufügen</button>
-<div class="err" id="aerr"></div>
-</div>
-<div class="card"><h2>Ausgaben nach Kategorie</h2><div id="cats"></div></div>
-<div class="card"><h2>Buchungen</h2><div id="list"></div></div>
+  <div class="top">
+    <h1>💶 Finanzplaner</h1>
+    <button onclick="auth.signOut()">Abmelden</button>
+  </div>
+
+  <div class="nav">
+    <button onclick="shift(-1)" aria-label="Voriger Monat">‹</button>
+    <b id="mlabel"></b>
+    <button onclick="shift(1)" aria-label="Nächster Monat">›</button>
+  </div>
+
+  <div class="sum">
+    <div><small>Einnahmen</small><strong class="in" id="sin"></strong></div>
+    <div><small>Ausgaben</small><strong class="ex" id="sex"></strong></div>
+    <div><small>Saldo</small><strong id="sbal"></strong></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="seg">
+      <button id="bEx" class="on" onclick="setType('Ausgabe')">Ausgabe</button>
+      <button id="bIn" onclick="setType('Einnahme')">Einnahme</button>
+    </div>
+    <input id="amt" type="text" inputmode="decimal" placeholder="Betrag in € (z. B. 12,50)">
+    <select id="cat"></select>
+    <input id="dat" type="date">
+    <input id="note" type="text" placeholder="Notiz (optional)">
+    <button class="p" onclick="add()">Hinzufügen</button>
+    <div class="err" id="aerr"></div>
+  </div>
+
+  <div class="card"><h2>Ausgaben nach Kategorie</h2><div id="cats"></div></div>
+  <div class="card"><h2>Buchungen</h2><div id="list"></div></div>
 </div>
 
 </main>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-/* ===== HIER DEINE FIREBASE-DATEN EINTRAGEN (aus der Firebase-Konsole) ===== */
-var firebaseConfig = {
-  apiKey: "AIzaSyApm_qGr0MC00JMIEZATQLYvDyX7ZubW7Q",
-  authDomain: "finanzplaner-da1de.firebaseapp.com",
-  projectId: "finanzplaner-da1de",
-  storageBucket: "finanzplaner-da1de.firebasestorage.app",
-  messagingSenderId: "246005064676",
-  appId: "1:246005064676:web:f6562a1aeaa1a581f09df1"
-};
-/* ========================================================================= */
 
-var CATS={Ausgabe:["Wohnen","Lebensmittel","Mobilität","Freizeit","Gesundheit","Sonstiges"],Einnahme:["Gehalt","Nebenjob","Sonstiges"]};
-var type="Ausgabe",items=[],uid=null,unsub=null;
-var today=new Date().toISOString().slice(0,10);
-var month=today.slice(0,7);
-var fmt=new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"});
-function $(id){return document.getElementById(id)}
-function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}
-
-var auth,db;
-if(firebaseConfig.apiKey==="DEIN_API_KEY"){
-  $("login").className="";
-  $("lerr").textContent="Firebase-Daten fehlen noch: Trage deine firebaseConfig im Code ein.";
-}else{
-  firebase.initializeApp(firebaseConfig);
-  auth=firebase.auth();db=firebase.firestore();
-  auth.onAuthStateChanged(function(u){
-    if(unsub){unsub();unsub=null}
-    if(u){
-      uid=u.uid;
-      $("login").className="hide";$("app").className="";
-      unsub=col().onSnapshot(function(s){
-        items=s.docs.map(function(d){var x=d.data();x.id=d.id;return x});render();
-      },function(e){$("aerr").textContent="Fehler beim Laden: "+e.message});
-    }else{
-      uid=null;items=[];
-      $("app").className="hide";$("login").className="";
-    }
-  });
-}
-function col(){return db.collection("users").doc(uid).collection("items")}
-
-function errText(e){
-  var m={"auth/invalid-credential":"E-Mail oder Passwort falsch.","auth/invalid-email":"Ungültige E-Mail-Adresse.","auth/email-already-in-use":"Diese E-Mail ist schon registriert.","auth/weak-password":"Das Passwort ist zu kurz (mind. 6 Zeichen).","auth/missing-password":"Bitte Passwort eingeben.","auth/too-many-requests":"Zu viele Versuche. Bitte später erneut probieren."};
-  return m[e.code]||e.message}
-function signIn(){$("lerr").textContent="";if(!auth)return;auth.signInWithEmailAndPassword($("em").value.trim(),$("pw").value).catch(function(e){$("lerr").textContent=errText(e)})}
-function signUp(){$("lerr").textContent="";if(!auth)return;auth.createUserWithEmailAndPassword($("em").value.trim(),$("pw").value).catch(function(e){$("lerr").textContent=errText(e)})}
-
-function setType(t){type=t;$("bEx").className=t==="Ausgabe"?"on":"";$("bIn").className=t==="Einnahme"?"on":"";fillCats()}
-function fillCats(){$("cat").innerHTML=CATS[type].map(function(c){return "<option>"+c+"</option>"}).join("")}
-function shift(n){var p=month.split("-"),d=new Date(+p[0],+p[1]-1+n,1);month=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");render()}
-function add(){
-  $("aerr").textContent="";
-  var v=parseFloat($("amt").value.replace(",","."));
-  if(!(v>0)){$("amt").focus();return}
-  var d=$("dat").value||today;
-  col().add({type:type,amount:v,cat:$("cat").value,date:d,note:$("note").value.trim(),ts:Date.now()})
-    .catch(function(e){$("aerr").textContent="Speichern fehlgeschlagen: "+e.message});
-  $("amt").value="";$("note").value="";month=d.slice(0,7);render()}
-function del(id){col().doc(id).delete().catch(function(e){$("aerr").textContent="Löschen fehlgeschlagen: "+e.message})}
-function render(){
-  var p=month.split("-");
-  $("mlabel").textContent=new Date(+p[0],+p[1]-1,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"});
-  var m=items.filter(function(i){return i.date.slice(0,7)===month}).sort(function(a,b){return b.date.localeCompare(a.date)||(b.ts||0)-(a.ts||0)});
-  var inc=0,exp=0,by={};
-  m.forEach(function(i){if(i.type==="Einnahme")inc+=i.amount;else{exp+=i.amount;by[i.cat]=(by[i.cat]||0)+i.amount}});
-  $("sin").textContent=fmt.format(inc);$("sex").textContent=fmt.format(exp);
-  var b=inc-exp;$("sbal").textContent=fmt.format(b);$("sbal").className=b>=0?"in":"ex";
-  var keys=Object.keys(by).sort(function(a,c){return by[c]-by[a]});
-  $("cats").innerHTML=keys.length?keys.map(function(k){return '<div class="cat"><span>'+esc(k)+'</span><span>'+fmt.format(by[k])+'</span></div><div class="bar"><i style="width:'+Math.round(by[k]/exp*100)+'%"></i></div>'}).join(""):'<div class="empty">Noch keine Ausgaben in diesem Monat.</div>';
-  $("list").innerHTML=m.length?m.map(function(i){var s=i.type==="Einnahme";return '<div class="row"><div>'+esc(i.cat)+'<small>'+new Date(i.date).toLocaleDateString("de-DE")+(i.note?" · "+esc(i.note):"")+'</small></div><div><b class="'+(s?"in":"ex")+'">'+(s?"+":"−")+fmt.format(i.amount)+'</b> <button onclick="del(\''+i.id+'\')" aria-label="Löschen">✕</button></div></div>'}).join(""):'<div class="empty">Noch keine Buchungen in diesem Monat.</div>'}
-fillCats();$("dat").value=today;
-</script>
+<!-- Funktionen -->
+<script src="app.js"></script>
 </body>
 </html>
