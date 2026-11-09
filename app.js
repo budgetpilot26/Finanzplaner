@@ -8,7 +8,7 @@ const CC={Wohnen:"#3b82f6",Krankenkasse:"#06b6d4",Auto:"#f97316",Abos:"#a855f7",
 const PC=["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ec4899","#06b6d4","#ef4444"];
 const AB=[["AHV / IV / EO","Alter, Invalidität, Erwerbsersatz"],["ALV","Arbeitslosenversicherung, bis CHF 148’200"],["Pensionskasse (BVG)","je nach Alter und Vorsorgeplan"],["NBU","Nichtberufsunfall-Versicherung"],["Krankentaggeld (KTG)","oft hälftig vom Arbeitgeber getragen"],["Quellensteuer","nur ohne Niederlassungsbewilligung C"]];
 const T0=new Date();
-const mk0=()=>({cur:"CHF",cash:10000,cashR:.5,yrs:10,lead:3,paid:{},extra:[],km:0,goals:[],
+const mk0=()=>({cur:"CHF",cash:10000,cashR:.5,yrs:10,lead:3,paid:{},extra:[],km:0,goals:[],ist:{},istIn:{},rules:{},car:{price:0,year:0,age:0},
 inc:{mode:"y",gross:96000,net:0,th:false,day:25,tax:12},
 ab:[{on:1,p:5.3},{on:1,p:1.1},{on:1,p:6},{on:1,p:1},{on:1,p:.5},{on:0,p:0}],
 items:[
@@ -29,12 +29,12 @@ items:[
 {name:"Ferien",cat:"Ferien",amt:3000,freq:"y",day:1,mon:7}]});
 const mk=()=>{const d=mk0();d.items.forEach((x,i)=>{x.id="i"+i});return d};
 let D=mk();
-const U={tab:"home",ws:"prog",ed:null,cm:T0.getMonth(),cy:T0.getFullYear()};
+const U={tab:"home",ws:"prog",es:"bud",im:null,imp:null,base:null,msg:"",ed:null,cm:T0.getMonth(),cy:T0.getFullYear()};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const F=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:D.cur,maximumFractionDigits:0}).format(n);
 const Fd=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:D.cur,minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2}).format(n);
-function fix(){D.items.forEach((x,i)=>{if(!x.id)x.id="i"+i});D.extra=D.extra||[];D.extra.forEach((x,i)=>{if(!x.id)x.id="e"+i});D.goals=D.goals||[];D.goals.forEach((x,i)=>{if(!x.id)x.id="g"+i});D.km=D.km||0;D.paid=D.paid||{}}
+function fix(){D.items.forEach((x,i)=>{if(!x.id)x.id="i"+i});D.extra=D.extra||[];D.extra.forEach((x,i)=>{if(!x.id)x.id="e"+i});D.goals=D.goals||[];D.goals.forEach((x,i)=>{if(!x.id)x.id="g"+i});D.km=D.km||0;D.paid=D.paid||{};D.ist=D.ist||{};D.istIn=D.istIn||{};D.rules=D.rules||{};D.car=Object.assign({price:0,year:0,age:0},D.car||{})}
 function bn(m){$("bn").textContent=m;$("bn").className=m?"bn":"hide"}
 let uid=null,unsub=null,tm=null,ready=false;
 const ref=()=>db.collection("users").doc(uid).collection("planner").doc("main");
@@ -106,7 +106,7 @@ function ires(){
  rows.push(["Einkommen netto pro Monat",F(c.netM)],["Steuern pro Jahr (geschätzt)",F(c.taxY)],["Nach Steuern pro Monat",F(c.netM-c.taxM)]);
  if(i.day>0&&c.net>0)rows.push(["Nächster Lohn",dl(nxt(i.day,"m"))]);
  $("ires").innerHTML='<h2>Ergebnis</h2>'+rows.map(r=>'<div class="lg"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join("")+(own?'<p class="s" style="margin:8px 0 0">Mit eingetragenem Netto dienen die Abzüge nur zur Anzeige.</p>':'')}
-function tExp(){
+function tBud(){
  const c=calc();
  let h='<div class="card"><h2>Fixe Ausgaben, Vorsorge und Anlagen</h2><p class="s">Pro Monat: '+F(c.exp+c.sav)+', davon Vorsorge und Anlagen '+F(c.sav)+'. Tippe auf einen Namen, um Unterkategorie, Rhythmus und Zahltag zu ändern. Ohne Zahltag läuft die Zahlung automatisch (Lastschrift oder Dauerauftrag).</p>';
  Object.keys(CC).forEach(k=>{
@@ -136,7 +136,7 @@ function R(){
  $("v").innerHTML=T[U.tab]();
  $("nv").innerHTML=[["home","Übersicht"],["inc","Einkommen"],["exp","Ausgaben"],["chk","Checkliste"],["wea","Vermögen"],["tip","Tipps"]].map(t=>'<button class="'+(U.tab==t[0]?"on":"")+'" onclick="tab(\''+t[0]+'\')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="'+IC[t[0]]+'"/></svg><span>'+t[1]+'</span></button>').join("");
  if(U.tab=="inc")ires();
- if(U.tab=="exp")fs();
+ if(U.tab=="exp"&&U.es!="ist")fs();
  if(U.tab=="wea"&&U.ws!="ziele")wc()}
 function tab(t){U.tab=t;R();scrollTo(0,0)}
 
@@ -177,11 +177,13 @@ function tipsList(){
  const c=calc(),T=[],g=c.gross>0?c.gross/12:c.netM,pc=(v,b)=>b>0?Math.round(v/b*100):0,mo=x=>x.freq=="y"?x.amt/12:x.amt,sm=(cat,sb)=>D.items.filter(x=>x.cat==cat&&(!sb||subOf(x)==sb)).reduce((s,x)=>s+mo(x),0);
  const W=c.by.Wohnen||0,wp=pc(W,g);
  if(W>0)T.push([wp>33?"warn":wp>25?"info":"good","Wohnen: "+wp+" % vom Bruttolohn",wp>33?"Die Drittelregel empfiehlt höchstens etwa "+F(g/3)+" pro Monat für Wohnkosten. Du liegst darüber, das schränkt dein Sparen ein.":wp>25?"Im oberen Bereich der üblichen Faustregel von etwa einem Drittel des Bruttolohns (bis "+F(g/3)+").":"Unter einem Viertel deines Bruttolohns, das ist komfortabel.",wp+" %"]);
- const A=c.by.Auto||0,cp=pc(A,c.netM),km=D.km||0;
+ const A=c.by.Auto||0,cp=pc(A,c.netM),km=D.km||0,cc=carCalc();
  if(A>0){
-  if(km>0){const pk=A*12/km,pot=Math.max(A*12-km*.76,0);
-   T.push([pk>.9||cp>15?"warn":pk>.76||cp>10?"info":"good","Auto: "+Math.round(pk*100)+" Rp. pro Kilometer","Du zahlst "+F(A*12)+" pro Jahr für "+km.toLocaleString("de-CH")+" km ("+cp+" % vom Netto). Der TCS rechnet beim Musterauto mit rund 76 Rp. pro km bei 15’000 km."+(pot>0?" Gegenüber diesem Wert wären etwa "+F(pot)+" pro Jahr drin (grobe Schätzung).":" Du liegst im Bereich des Durchschnitts oder darunter.")+(km<10000&&A*12>5000?" Bei wenig Fahrleistung lohnt sich ein Vergleich mit Car-Sharing und ÖV.":""),pot>0?F(pot)+" / J.":Math.round(pk*100)+" Rp."])}
-  else T.push([cp>15?"warn":cp>10?"info":"good","Auto: "+cp+" % vom Nettoeinkommen","Du zahlst "+F(A*12)+" pro Jahr. Trag oben bei den Angaben die gefahrenen Kilometer pro Jahr ein, dann schätze ich die Kosten pro Kilometer und das Sparpotenzial.",cp+" %"])}
+  if(cc&&cc.P>0){const x=cc.cost(cc.n0),y=cc.cost(Math.max(cc.n0,10)),pot=Math.max((x-.74)*km,0);
+   T.push([x>.9?"warn":x>.74?"info":"good","Auto: wirklich "+Math.round(x*100)+" Rp. pro Kilometer","Mit Betriebskosten ("+F(A*12)+" pro Jahr) und Abschreibung (rund "+F(cc.dep)+" pro Jahr) kostet dich jeder Kilometer so viel. Der TCS rechnet beim Musterauto 2026 mit rund 74 Rp. pro km bei 15’000 km."+(pot>0?" Gegenüber diesem Wert wären etwa "+F(pot)+" pro Jahr drin (grobe Schätzung).":"")+(cc.n0<10?" Behältst du das Auto "+Math.max(cc.n0,10)+" Jahre, sinkt der Wert auf etwa "+Math.round(y*100)+" Rp. pro km, weil der Wertverlust pro Jahr mit der Zeit kleiner wird.":" Die Abschreibung ist weitgehend durch, jetzt zählen vor allem Betrieb und Reparaturen."),pot>0?F(pot)+" / J.":Math.round(x*100)+" Rp."])}
+  else if(km>0){const pk=A*12/km;
+   T.push([pk>.9||cp>15?"warn":pk>.74||cp>10?"info":"good","Auto: "+Math.round(pk*100)+" Rp. pro Kilometer (ohne Abschreibung)","Du zahlst "+F(A*12)+" pro Jahr für "+km.toLocaleString("de-CH")+" km ("+cp+" % vom Netto). Der TCS rechnet beim Musterauto 2026 mit rund 74 Rp. pro km inklusive Abschreibung. Trag unter Tipps die Anschaffungskosten ein, dann rechne ich genauer."+(km<10000&&A*12>5000?" Bei wenig Fahrleistung lohnt sich ein Vergleich mit Car-Sharing und ÖV.":""),Math.round(pk*100)+" Rp."])}
+  else T.push([cp>15?"warn":cp>10?"info":"good","Auto: "+cp+" % vom Nettoeinkommen","Du zahlst "+F(A*12)+" pro Jahr. Trag bei Tipps die gefahrenen Kilometer pro Jahr ein, dann schätze ich die Kosten pro Kilometer.",cp+" %"])}
  const H=sm("Abos","Handy");
  if(H>0)T.push([H>=40?"warn":H>=25?"info":"good","Handyabo: "+F(H)+" pro Monat",H>25?"Unlimitierte Schweizer Handyabos gibt es bei günstigen Anbietern schon ab etwa CHF 13 bis 25 pro Monat (Stand Juli 2026). Bestandskunden zahlen oft mehr als Neukunden. Bei einem Wechsel sparst du rund "+F((H-25)*12)+" pro Jahr.":"Dein Handyabo liegt bereits im günstigen Bereich.",H>25?F((H-25)*12)+" / J.":F(H)+" / Mt."]);
  const ab=D.items.filter(x=>x.cat=="Abos"&&subOf(x)!="Handy"),B=ab.reduce((s,x)=>s+mo(x),0);
@@ -205,7 +207,13 @@ function tipsList(){
  if(gt>0&&gt>Math.max(c.free,0))T.push(["warn","Sparziele: "+F(gt)+" pro Monat nötig","Frei zum Sparen sind aktuell "+F(Math.max(c.free,0))+" pro Monat. Passe Ziele, Dauer oder Ausgaben an.",F(gt)]);
  const o={warn:0,info:1,good:2};return T.sort((a,b)=>o[a[0]]-o[b[0]])}
 const tipHtml=t=>'<div class="tp '+t[0]+'"><div><b>'+t[1]+'</b><small>'+t[2]+'</small></div>'+(t[3]?'<span class="chip">'+t[3]+'</span>':'')+'</div>';
-function tTip(){const T=tipsList();return'<div class="card"><h2>Angaben für genauere Tipps</h2><label>Gefahrene Kilometer pro Jahr (Auto)</label><input type="number" inputmode="numeric" value="'+(D.km||"")+'" placeholder="z. B. 12000" onchange="D.km=+this.value;sv();R()"></div><div class="card"><h2>Sparpotenzial und Tipps</h2><p class="s">Auswertung deiner Eingaben mit groben Richtwerten. Das ist keine Steuer- oder Anlageberatung.</p>'+(T.length?T.map(tipHtml).join(""):'<p class="s">Trag zuerst Einkommen und Ausgaben ein, dann erscheinen hier Tipps.</p>')+'</div>'}
+function tTip(){
+ const T=tipsList(),k=D.car,cc=carCalc(),f=(key,l,ph)=>'<div><label>'+l+'</label><input type="number" inputmode="numeric" value="'+(k[key]||"")+'" placeholder="'+ph+'" onchange="D.car.'+key+'=+this.value;sv();R()"></div>';
+ let car='<div class="card"><h2>Auto: wahre Kosten pro Kilometer</h2><p class="s">Mit Anschaffungskosten und Alter siehst du, was jeder Kilometer inklusive Wertverlust kostet und wie das mit der Haltedauer sinkt. Die Betriebskosten kommen aus deinen Ausgaben bei Auto. Bei einem Leasing trägst du bei den Anschaffungskosten 0 ein.</p><div class="cr">'+f("price","Anschaffungskosten","z. B. 25000")+f("year","Kaufjahr","z. B. 2022")+'</div>'+f("age","Alter des Autos beim Kauf (Jahre)","0 = neu");
+ if(cc&&cc.P>0){const r=(a,b)=>'<div class="lg"><span>'+a+'</span><b>'+b+'</b></div>',x=n=>Math.round(cc.cost(n)*100)+" Rp.";
+  car+='<div style="margin-top:12px">'+r("Abschreibung pro Jahr",F(cc.dep))+r("Geschätzter Restwert heute",F(cc.rest))+r("Kosten pro km nach "+cc.n0+(cc.n0==1?" Jahr":" Jahren")+" Besitz",x(cc.n0))+r("nach 5 Jahren",x(5))+r("nach 10 Jahren",x(10))+r("nach 15 Jahren",x(15))+'</div>'+carChart(cc)+'<p class="s" style="margin:8px 0 0">Der gelbe Punkt zeigt, wo du heute stehst. Berechnung: Der Wertverlust ist am Anfang am höchsten und sinkt dann (rund 11 % pro Jahr plus 1 % pro 10’000 km, bei älter gekauften Autos weniger). Das ist ein Richtwert, kein Gutachten.</p>'}
+ else car+='<p class="s" style="margin:10px 0 0">'+(D.km>0?"Trag Anschaffungskosten und Kaufjahr ein.":"Trag zuerst oben die gefahrenen Kilometer pro Jahr ein.")+'</p>';
+ return'<div class="card"><h2>Angaben für genauere Tipps</h2><label>Gefahrene Kilometer pro Jahr (Auto)</label><input type="number" inputmode="numeric" value="'+(D.km||"")+'" placeholder="z. B. 12000" onchange="D.km=+this.value;sv();R()"></div>'+car+'</div><div class="card"><h2>Sparpotenzial und Tipps</h2><p class="s">Auswertung deiner Eingaben mit groben Richtwerten. Das ist keine Steuer- oder Anlageberatung.</p>'+(T.length?T.map(tipHtml).join(""):'<p class="s">Trag zuerst Einkommen und Ausgaben ein, dann erscheinen hier Tipps.</p>')+'</div>'}
 let TH="auto";try{TH=localStorage.getItem("fp_theme")||"auto"}catch(e){}
 function applyTheme(){const r=document.documentElement;if(TH=="auto")r.removeAttribute("data-theme");else r.setAttribute("data-theme",TH);const b=$("th");if(b){b.textContent={auto:"◐",light:"☀",dark:"☾"}[TH];b.title="Darstellung: "+{auto:"automatisch",light:"hell",dark:"dunkel"}[TH]}}
 function cycleTheme(){TH={auto:"light",light:"dark",dark:"auto"}[TH];try{localStorage.setItem("fp_theme",TH)}catch(e){}applyTheme()}
@@ -255,6 +263,70 @@ function ug(i,k,v){D.goals[i][k]=v;sv();R()}
 function dg(i){if(confirm("Dieses Sparziel löschen?")){D.goals.splice(i,1);sv();R()}}
 function tWea(){return'<div class="chips" style="margin-bottom:14px"><button class="'+(U.ws!="ziele"?"on":"")+'" onclick="U.ws=\'prog\';R()">Prognose</button><button class="'+(U.ws=="ziele"?"on":"")+'" onclick="U.ws=\'ziele\';R()">Sparziele</button></div>'+(U.ws=="ziele"?tGoals():tProg())}
 
+
+/* ===== Ist-Vergleich (manuell eingetippt) und Autokosten ===== */
+const ML=m=>MN[+m.slice(5)-1]+" "+m.slice(0,4);
+function dmon(m){if(!confirm("Die Ist-Werte von "+ML(m)+" löschen?"))return;delete D.ist[m];delete D.istIn[m];sv();R()}
+function sIst(c,v){const m=U.im;v=Math.round((parseFloat(String(v).replace(",","."))||0)*100)/100;
+ if(v>0){(D.ist[m]=D.ist[m]||{})[c]=v}else if(D.ist[m]){delete D.ist[m][c];if(!Object.keys(D.ist[m]).length&&!D.istIn[m])delete D.ist[m]}
+ sv();R()}
+function sIn(v){const m=U.im;v=Math.round((parseFloat(String(v).replace(",","."))||0)*100)/100;
+ if(v>0)D.istIn[m]=v;else{delete D.istIn[m];if(D.ist[m]&&!Object.keys(D.ist[m]).length)delete D.ist[m]}
+ sv();R()}
+
+function vorg(cat,m){
+ if(cat=="Steuern")return calc().taxM;
+ return D.items.filter(x=>x.cat==cat).reduce((s,x)=>s+(x.freq=="y"?(m?(+x.mon==+m.slice(5)?x.amt:0):x.amt/12):x.amt),0)}
+function cmpRows(sel,use){
+ return Object.keys(CC).concat(["Steuern","Nicht zugeordnet"]).map(k=>{
+  const vor=vorg(k,sel),ist=sel?((D.ist[sel]||{})[k]||0):use.reduce((s,m)=>s+((D.ist[m]||{})[k]||0),0)/use.length;
+  return{k,vor,ist,d:ist-vor}}).filter(r=>r.vor>1||r.ist>1)}
+function stt(r){
+ if(r.k=="Nicht zugeordnet")return["nicht zugeordnet","now"];
+ if(r.vor<=1)return["ohne Vorgabe","now"];
+ if(r.ist<=r.vor*1.05)return[r.ist<r.vor*.7?"deutlich darunter":"eingehalten","ok"];
+ if(r.ist<=r.vor*1.25)return["leicht darüber","soon"];
+ return["deutlich darüber","late"]}
+function recs(use){
+ const L=[];
+ cmpRows(null,use).forEach(r=>{if(r.k=="Nicht zugeordnet")return;
+  if(r.vor>1&&r.ist>r.vor*1.15)L.push(["warn",r.k+": Vorgabe oft überschritten","Du gibst im Schnitt "+F(r.ist)+" statt "+F(r.vor)+" pro Monat aus. Entweder passt du die Vorgabe auf rund "+F(r.ist)+" an oder du senkst die Ausgaben um etwa "+F(r.d)+" pro Monat.",F(r.d)+" / Mt."]);
+  else if(r.vor>1&&r.ist>0&&r.ist<r.vor*.8&&!SAV.includes(r.k))L.push(["good",r.k+": Vorgabe vermutlich zu hoch","Im Schnitt gibst du nur "+F(r.ist)+" statt "+F(r.vor)+" pro Monat aus. Mit einer Vorgabe von etwa "+F(r.ist)+" bleiben rund "+F(-r.d)+" pro Monat mehr zum Sparen.",F(-r.d)+" / Mt."]);
+  else if(r.vor<=1&&r.ist>20)L.push(["info",r.k+": keine Vorgabe","Du gibst im Schnitt "+F(r.ist)+" pro Monat aus. Lege bei den Ausgaben eine Vorgabe fest.",F(r.ist)+" / Mt."])});
+ return L}
+function tIst(){
+ const has=m=>(D.istIn[m]>0)||Object.keys(D.ist[m]||{}).length>0,ms=Array.from(new Set(Object.keys(D.ist).concat(Object.keys(D.istIn)))).filter(has).sort().reverse();
+ const nowK=T0.getFullYear()+"-"+String(T0.getMonth()+1).padStart(2,"0"),pd=new Date(T0.getFullYear(),T0.getMonth()-1,1),prevK=pd.getFullYear()+"-"+String(pd.getMonth()+1).padStart(2,"0");
+ const sel=/^\d{4}-\d{2}$/.test(U.im||"")?U.im:(ms[0]||prevK);U.im=sel;
+ const cats=Object.keys(CC).concat(["Steuern"]),cur=D.ist[sel]||{};
+ let h='<div class="card"><h2>Ist-Werte eintragen</h2><p class="s">Tippe die Monatssummen pro Kategorie aus deinem E-Banking oder deiner Kreditkartenabrechnung ab. Es wird nichts hochgeladen, du gibst nur Summen ein.</p>'
+  +'<label for="im">Monat</label><input id="im" type="month" value="'+sel+'" max="'+nowK+'" onchange="U.im=this.value||U.im;R()">'
+  +(ms.length?'<div class="chips" style="flex-wrap:wrap;margin-top:10px">'+ms.slice(0,6).map(m=>'<button class="'+(sel==m?"on":"")+'" onclick="U.im=\''+m+'\';R()">'+MN[+m.slice(5)-1].slice(0,3)+' '+m.slice(2,4)+'</button>').join("")+'</div>':'')
+  +'<div style="margin-top:8px"><div class="rw"><div>Einnahmen<small>Lohn und andere Eingänge</small></div><input type="number" step="0.01" inputmode="decimal" value="'+(D.istIn[sel]||"")+'" onchange="sIn(this.value)"></div>'
+  +cats.map(k=>'<div class="rw"><div><u style="background:'+(CC[k]||"#94a3b8")+';width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:8px"></u>'+esc(k)+'<small>Vorgabe '+F(vorg(k,sel))+'</small></div><input type="number" step="0.01" inputmode="decimal" value="'+(cur[k]||"")+'" onchange="sIst(\''+esc(k)+'\',this.value)"></div>').join("")+'</div>'
+  +'<p class="s" style="margin:10px 0 0">Tipp: Rechne Kreditkartenzahlungen nur einmal. Entweder nach Kategorie von der Kreditkartenabrechnung eintragen oder die Rechnung auf dem Konto weglassen.</p></div>';
+ if(!has(sel))return h+'<div class="card"><p class="s" style="margin:0">Noch keine Ist-Werte für '+ML(sel)+'. Trage oben die Summen ein, dann siehst du hier den Vergleich.</p></div>';
+ const use=ms.filter(m=>m<nowK).length?ms.filter(m=>m<nowK):ms,rows=cmpRows(sel,[sel]),sm=(f)=>rows.filter(r=>!SAV.includes(r.k)).reduce((s,r)=>s+r[f],0);
+ const inc=D.istIn[sel]||0;
+ h+='<div class="card"><h2>'+ML(sel)+(sel==nowK?" (laufender Monat, unvollständig)":"")+'</h2><p class="s">Vorgabe aus deinem Budget, Ist aus deinen Eingaben. Jährliche Ausgaben zählen nur im Monat der Fälligkeit.</p>'
+  +[["Einnahmen",inc,calc().netM],["Ausgaben ohne Vorsorge und Anlagen",sm("ist"),sm("vor")]].map(r=>'<div class="lg"><span>'+r[0]+'<em>Vorgabe '+F(r[2])+'</em></span><b>'+F(r[1])+'</b></div>').join("")
+  +rows.map(r=>{const s=stt(r),over=r.vor>1&&r.ist>r.vor*1.05;return'<div class="rw"><div><u style="background:'+(CC[r.k]||"#94a3b8")+';width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:8px"></u>'+esc(r.k)+'<small>Vorgabe '+F(r.vor)+', Ist '+F(r.ist)+'</small></div><div class="r"><b>'+(r.d>0?"+":"")+F(r.d)+'</b><span class="tg '+s[1]+'">'+s[0]+'</span></div></div><div class="pg"><i style="width:'+Math.min(100,r.vor>1?r.ist/r.vor*100:100)+'%'+(over?';background:var(--neg)':'')+'"></i></div>'}).join("")
+  +'<button class="btn ghost" onclick="dmon(\''+sel+'\')">Daten von '+ML(sel)+' löschen</button></div>';
+ const rc=recs(use);
+ return h+'<div class="card"><h2>Empfehlungen</h2><p class="s">Auf Basis von '+use.length+(use.length==1?" Monat":" Monaten")+'.'+(use.length<3?' Mit wenigen Monaten sind die Aussagen unsicher, besonders bei jährlichen Ausgaben wie Ferien oder Autoversicherung.':'')+'</p>'+(rc.length?rc.map(x=>'<div class="tp '+x[0]+'"><div><b>'+x[1]+'</b><small>'+x[2]+'</small></div><span class="chip">'+x[3]+'</span></div>').join(""):'<p class="s" style="margin:0">Alles im grünen Bereich, deine Vorgaben passen zu deinen Ausgaben.</p>')+'</div>'}
+function tExp(){return'<div class="chips" style="margin-bottom:14px"><button class="'+(U.es!="ist"?"on":"")+'" onclick="U.es=\'bud\';R()">Budget</button><button class="'+(U.es=="ist"?"on":"")+'" onclick="U.es=\'ist\';R()">Ist-Vergleich</button></div>'+(U.es=="ist"?tIst():tBud())}
+
+function carCalc(){
+ const c=calc(),A=(c.by.Auto||0)*12,km=D.km||0,k=D.car||{},P=+k.price||0;
+ if(!(A>0)||!(km>0))return null;
+ const a=+k.age||0,d=Math.min(.3,(.11+.01*km/1e4)*Math.max(.5,1-.07*a)),val=t=>P*Math.pow(1-d,t),cost=n=>(P-val(n)+A*n)/(n*km);
+ const n0=Math.max(T0.getFullYear()-(+k.year||T0.getFullYear())+1,1),yo=n0-1+T0.getMonth()/12;
+ return{A,km,P,d,dep:val(n0-1)-val(n0),cost,n0,rest:val(yo)}}
+function carChart(cc){
+ const W=320,H=120,v=[];for(let n=1;n<=15;n++)v.push(cc.cost(n)*100);
+ const mx=Math.max(...v),mn=Math.min(...v)*.9,X=i=>(i/14*W).toFixed(1),Y=y=>(H-(y-mn)/(mx-mn||1)*H).toFixed(1),p=v.map((y,i)=>X(i)+","+Y(y)).join(" "),i0=Math.min(Math.max(cc.n0,1),15)-1;
+ return'<svg viewBox="0 0 320 130" style="width:100%;display:block;overflow:visible;margin-top:10px"><polygon points="0,'+H+' '+p+' '+W+','+H+'" fill="var(--pri)" opacity=".12"/><polyline points="'+p+'" fill="none" stroke="var(--pri)" stroke-width="2.5" stroke-linejoin="round"/><circle cx="'+X(i0)+'" cy="'+Y(v[i0])+'" r="5" fill="var(--gold)"/></svg><div class="ax"><span>1 Jahr Besitz</span><span>15 Jahre</span></div>'}
+
 /* ===== Firebase: Login und Synchronisation ===== */
 const firebaseConfig={
   apiKey:"AIzaSyApm_qGr0MC00JMIEZATQLYvDyX7ZubW7Q",
@@ -278,6 +350,7 @@ auth.onAuthStateChanged(u=>{
   $("v").innerHTML='<p class="s">Daten werden geladen …</p>';
   unsub=ref().onSnapshot(s=>{
    if(s.metadata.hasPendingWrites)return;
+   if(s.exists&&s.data().ct){ready=false;$("v").innerHTML='<div class="card"><h2>Verschlüsselte Daten</h2><p class="s">Deine gespeicherten Daten stammen aus einer verschlüsselten Testversion und können in dieser Version nicht gelesen werden. Du kannst leer neu starten. Die alten Daten werden dabei gelöscht.</p><button class="btn" onclick="resetEnc()">Leer neu starten</button></div>';return}
    if(s.exists){D=Object.assign(mk(),s.data());fix();ready=true;$("cu").value=D.cur;if(!typing())R()}
    else if(!s.metadata.fromCache){D=mk();fix();ready=true;$("cu").value=D.cur;sv();R()}
   },e=>bn("Fehler beim Laden: "+e.message));
@@ -291,13 +364,14 @@ function errText(e){
  const m={"auth/invalid-credential":"E-Mail oder Passwort falsch.","auth/invalid-email":"Ungültige E-Mail-Adresse.","auth/email-already-in-use":"Diese E-Mail ist schon registriert.","auth/weak-password":"Das Passwort ist zu kurz (mind. 6 Zeichen).","auth/missing-password":"Bitte Passwort eingeben.","auth/network-request-failed":"Keine Internetverbindung.","auth/too-many-requests":"Zu viele Versuche. Bitte später erneut probieren."};
  return m[e.code]||e.message}
 function signIn(){$("lerr").textContent="";$("lok").textContent="";auth.signInWithEmailAndPassword($("em").value.trim(),$("pw").value).catch(e=>$("lerr").textContent=errText(e))}
-function signUp(){$("lerr").textContent="";$("lok").textContent="";auth.createUserWithEmailAndPassword($("em").value.trim(),$("pw").value).catch(e=>$("lerr").textContent=errText(e))}
+function signUp(){$("lerr").textContent="";$("lok").textContent="";if($("pw").value.length<10){$("lerr").textContent="Bitte wähle ein Passwort mit mindestens 10 Zeichen.";return}auth.createUserWithEmailAndPassword($("em").value.trim(),$("pw").value).catch(e=>$("lerr").textContent=errText(e))}
 function reset(){
  const e=$("em").value.trim();$("lerr").textContent="";$("lok").textContent="";
  if(!e){$("lerr").textContent="Bitte zuerst deine E-Mail eintragen.";return}
  auth.sendPasswordResetEmail(e).then(()=>$("lok").textContent="Wir haben dir eine E-Mail zum Zurücksetzen geschickt.").catch(x=>$("lerr").textContent=errText(x))}
 function konto(){
  return'<div class="card"><h2>Konto</h2><p class="s">Angemeldet als '+esc(auth.currentUser?auth.currentUser.email:"")+'. Deine Daten werden mit allen Geräten synchronisiert. Die Beispielwerte kannst du überschreiben oder ganz entfernen.</p><button class="btn ghost" onclick="auth.signOut()">Abmelden</button><button class="btn ghost" onclick="wipe()">Alle Einträge löschen und leer starten</button></div>'}
+function resetEnc(){if(!confirm("Die verschlüsselten Daten endgültig löschen und leer starten?"))return;D=mk();D.items=[];D.inc.gross=0;D.cash=0;D.paid={};fix();ready=true;ref().set(JSON.parse(JSON.stringify(D))).then(()=>{$("cu").value=D.cur;R()})}
 function wipe(){
  if(!confirm("Alle Einträge löschen und leer starten? Das lässt sich nicht rückgängig machen."))return;
  D=mk();D.items=[];D.inc.gross=0;D.cash=0;D.paid={};fix();sv();R()}
