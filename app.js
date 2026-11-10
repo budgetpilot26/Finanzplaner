@@ -231,18 +231,26 @@ function bstat(x,m){
  if(x.pv=="y"){const y=m.slice(0,4),B=mo(x)*12,S=sumE(e=>e.item==x.id&&e.d.slice(0,4)==y&&ded(e));return{pv:"y",B,S,rest:B-S,carry:0}}
  const c=x.carry?carryIn(x,m):0,B=mo(x)+c,S=sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e));return{pv:"m",B,S,rest:B-S,carry:c}}
 const trkCats=()=>Object.keys(CC).filter(k=>!SAV.includes(k)&&D.items.some(x=>x.cat==k&&x.trk));
+const pk=(id,m)=>m.slice(0,4)+"-"+(+m.slice(5)-1)+":"+id;
+const allCats=()=>Object.keys(CC).filter(k=>!SAV.includes(k)&&D.items.some(x=>x.cat==k));
+const fixDue=m=>D.items.filter(x=>!SAV.includes(x.cat)&&!x.trk&&(x.freq!="y"||+x.mon==+m.slice(5)));
 function gstat(cat,m){
- let B=0;D.items.filter(x=>x.cat==cat&&x.trk).forEach(x=>{B+=mo(x)+(x.carry&&x.pv!="y"?carryIn(x,m):0)});
- const S=sumE(e=>e.cat==cat&&e.d.slice(0,7)==m&&ded(e));return{B,S,rest:B-S}}
-function mtot(m){let B=0,S=0;trkCats().forEach(c=>{const g=gstat(c,m);B+=g.B;S+=g.S});return{B,S,rest:B-S}}
+ let B=0,S=0;
+ D.items.forEach(x=>{if(x.cat!=cat)return;
+  if(x.trk)B+=mo(x)+(x.carry&&x.pv!="y"?carryIn(x,m):0);
+  else if(x.freq!="y"||+x.mon==+m.slice(5)){B+=x.amt;if(D.paid[pk(x.id,m)])S+=x.amt}});
+ S+=sumE(e=>e.cat==cat&&e.d.slice(0,7)==m&&ded(e));
+ return{B,S,rest:B-S}}
+function mtot(m){let B=0,S=0;allCats().forEach(c=>{const g=gstat(c,m);B+=g.B;S+=g.S});return{B,S,rest:B-S}}
 function budM(){const c=calc();return c.exp+c.taxM}
 function realM(m){
- let fixed=0;D.items.forEach(x=>{if(!SAV.includes(x.cat)&&!x.trk)fixed+=mo(x)});
- return fixed+sumE(e=>e.d.slice(0,7)==m)+calc().taxM}
+ let s=0;fixDue(m).forEach(x=>{if(D.paid[pk(x.id,m)])s+=x.amt});
+ return s+sumE(e=>e.d.slice(0,7)==m)}
 function outM(k){
- const c=calc();let fixed=0,tb=0;D.items.forEach(x=>{if(SAV.includes(x.cat))return;if(x.trk)tb+=mo(x);else fixed+=mo(x)});
- const has=D.exp.some(e=>e.d.slice(0,7)==k);
- return{out:fixed+(has?sumE(e=>e.d.slice(0,7)==k):tb)+c.taxM,real:has}}
+ const c=calc(),tc=trkCats();let fixed=0,tb=0;D.items.forEach(x=>{if(SAV.includes(x.cat))return;if(x.trk)tb+=mo(x);else fixed+=mo(x)});
+ const isT=e=>{const it=e.item?D.items.find(z=>z.id==e.item):null;return it?!!it.trk:tc.includes(e.cat)};
+ const E=D.exp.filter(e=>e.d.slice(0,7)==k),T=E.filter(isT),te=T.reduce((s,e)=>s+e.amt,0),ex=E.reduce((s,e)=>s+e.amt,0)-te;
+ return{out:fixed+ex+(T.length?te:tb)+c.taxM,real:T.length>0}}
 
 /* ===== Vermögen: Startwert plus Einnahmen minus Ausgaben, Monat für Monat ===== */
 function wmodel(){
@@ -255,115 +263,138 @@ function wmodel(){
   sav.forEach(x=>{inv[x.id]=inv[x.id]*(1+(x.rate||0)/1200)+mo(x)});
   k=mAdd(k,1);n++;pts.push({m:k,v:tot()})}
  return{cash,inv,sav,total:tot(),pts,months:n}}
-function proj(){
- const c=calc(),n=D.yrs*12,w=wmodel();
+function proj(yrs){
+ const c=calc(),n=(yrs||D.yrs)*12,w=wmodel();
  const A=w.sav.map(x=>({n:x.name,v:w.inv[x.id],r:x.rate||0,m:mo(x)}));
  A.push({n:"Konto / Cash",v:w.cash,r:D.cashR,m:c.free});
  const S=A.map(a=>{let v=a.v,q=a.v;const o=[[v,q]];for(let t=1;t<=n;t++){v=v*(1+a.r/1200)+a.m;q+=a.m;o.push([v,q])}return o});
  return{A,S}}
+function fser(yrs){const S=proj(yrs).S,n=yrs*12,o=[],k=curK();for(let t=0;t<=n;t++)o.push({m:mAdd(k,t),v:S.reduce((q,a)=>q+a[t][0],0)});return o}
 
-/* ===== Ist-Vergleich: Ausgaben erfassen ===== */
+/* ===== Ausgaben: Fixkosten abhaken, variable Posten mit Budgetbalken ===== */
+const mbar=(S,B,sf)=>'<div class="mb '+pgc(S,B)+'"><i style="width:'+pgw(S,B)+'%"></i><span>'+F(S)+' von '+F(B)+(sf||"")+'</span></div>';
+const oc=id=>"U.ep=U.ep=='"+id+"'?null:'"+id+"';R()";
 function imv(n){U.im=mAdd(U.im,n);if(U.im>curK())U.im=curK();U.msg="";R()}
 function goExp(){U.tab="ist";U.im=curK();U.ae=1;U.msg="";R();scrollTo(0,0)}
 function quick(id){const x=D.items.find(z=>z.id==id);if(!x)return;U.ae=1;U.pc=x.cat;U.pi=id;R();const f=$("ef");if(f&&f.scrollIntoView)f.scrollIntoView({block:"center"})}
 function fe(){
- const cs=Object.keys(CC).filter(k=>!SAV.includes(k)&&(k!="Auto"||carOn())),sel=U.pc&&cs.includes(U.pc)?U.pc:(trkCats()[0]||cs[0]);
+ const cs=allCats(),sel=U.pc&&cs.includes(U.pc)?U.pc:(trkCats()[0]||cs[0]);
  $("ec").innerHTML=cs.map(k=>'<option'+(k==sel?" selected":"")+'>'+k+'</option>').join("");
  fi()}
 function fi(){
  const cat=$("ec").value,L=D.items.filter(x=>x.cat==cat);
- $("ei").innerHTML='<option value="">Kein bestimmter Posten</option>'+L.map(x=>'<option value="'+x.id+'"'+(U.pi==x.id?" selected":"")+'>'+esc(x.name)+'</option>').join("")}
+ $("ei").innerHTML='<option value="">Ohne Posten</option>'+L.map(x=>'<option value="'+x.id+'"'+(U.pi==x.id?" selected":"")+'>'+esc(x.name)+'</option>').join("")}
 function addE(){
  const a=parseFloat(String($("ea").value).replace(",","."));if(!(a>0)){$("ea").focus();return}
  const cat=$("ec").value,item=$("ei").value,once=$("eo").checked?1:0,dd=once&&$("ex").value=="0"?0:1,t=new Date();
  let d=$("ed").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d))d=curK()==U.im?t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"):U.im+"-15";
  D.exp.push({id:"x"+Date.now(),d,cat,item,amt:Math.round(a*100)/100,note:$("en").value.trim(),once,ded:dd});
  const m=d.slice(0,7),x=item?D.items.find(z=>z.id==item):null;U.im=m;
- if(!dd)U.msg="Gespeichert als einmalige Ausgabe. Sie wird nicht vom Budget abgezogen.";
- else{const s=x&&x.trk?bstat(x,m):gstat(cat,m),nm=x&&x.trk?x.name:cat,r=Math.round(s.rest);U.msg=s.B>0?"Gespeichert. Übrig bei "+nm+": "+F(r)+(r<0?" (über Budget)":"")+".":"Gespeichert."}
+ if(!dd)U.msg="Gespeichert. Die Ausgabe wird nicht vom Budget abgezogen.";
+ else if(x&&!x.trk)U.msg="Gespeichert.";
+ else{const s=x&&x.trk?bstat(x,m):gstat(cat,m),nm=x&&x.trk?x.name:cat,r=Math.round(s.rest);U.msg="Gespeichert. Übrig bei "+nm+": "+F(r)+(r<0?" (über Budget)":"")+"."}
  U.ae=0;U.pi=null;sv();R()}
 function delE(id){if(!confirm("Diese Ausgabe löschen?"))return;D.exp=D.exp.filter(e=>e.id!=id);sv();R()}
 function spx(id,k,v){const x=D.items.find(z=>z.id==id);if(x){x[k]=v;sv();R()}}
 
 function cmp3(m){
- const c=calc(),I=c.netM,B=budM(),S=realM(m),mx=Math.max(I,B,S,1);
- const row=(l,v,col)=>'<div class="hb"><span>'+l+'</span><div class="pg"><i style="width:'+(v/mx*100).toFixed(1)+'%;background:'+col+'"></i></div><b>'+F(v)+'</b></div>';
- return'<div class="card"><h2>Einnahmen, Budget und Ausgaben</h2><p class="s">'+ML(m)+'</p>'+row("Einnahmen",I,"var(--pos)")+row("Budget",B,"var(--pri)")+row("Ausgaben",S,S>B?"var(--neg)":"var(--warn)")+'<p class="s" style="margin:8px 0 0">Ausgaben: geschätzte Steuern, fixe Posten wie budgetiert und alle erfassten Ausgaben. Vom Einkommen bleiben '+F(I-S)+'.</p></div>'}
-function irow(x,m){
- const s=bstat(x,m),sb=SUBS[x.cat]?subOf(x):"";
- return'<div class="rw ed" onclick="U.ep=U.ep==\''+x.id+'\'?null:\''+x.id+'\';R()"><div>'+esc(x.name)+'<small>'+(sb?esc(sb)+" · ":"")+'Budget '+F(s.B)+(s.pv=="y"?" pro Jahr":"")+(s.carry>0?" (mit Übertrag "+F(s.carry)+")":"")+', ausgegeben '+F(s.S)+'</small><div class="pg '+pgc(s.S,s.B)+'" style="margin:7px 0 0"><i style="width:'+pgw(s.S,s.B)+'%"></i></div></div><div class="r"><b class="'+(s.rest<0?"neg":"")+'">'+F(s.rest)+'</b><span class="tg">übrig</span></div></div>'+(U.ep==x.id?ipn(x):"")}
+ const c=calc(),I=c.netM-c.taxM,B=mtot(m).B,S=realM(m),mx=Math.max(I,B,S,1);
+ const row=(l,v,col)=>'<div class="hc"><span>'+l+'</span><div class="mb"><i style="width:'+(v/mx*100).toFixed(1)+'%;background:'+col+'"></i><span>'+F(v)+'</span></div></div>';
+ return'<div class="card"><h2>Einnahmen, Budget, Ausgaben</h2>'+row("Einnahmen",I,"var(--pos)")+row("Budget",B,"var(--pri)")+row("Ausgaben",S,S>B?"var(--neg)":"var(--warn)")+'</div>'}
 function ipn(x){
- const q="'"+x.id+"'";
- return'<div class="pn"><button class="btn sm" onclick="quick('+q+')">Ausgabe zu «'+esc(x.name)+'» erfassen</button><label>Budget anzeigen</label><div class="seg"><button class="'+(x.pv!="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'m\')">Monatlich</button><button class="'+(x.pv=="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'y\')">Jährlich</button></div>'+(x.pv=="y"?'<p class="s" style="margin:10px 0 0">Beim Jahresbudget bleibt der Rest das ganze Jahr verfügbar.</p>':'<label class="ck" style="margin-top:14px"><input type="checkbox" '+(x.carry?"checked":"")+' onchange="spx('+q+',\'carry\',this.checked?1:0)"> Rest in den nächsten Monat übertragen</label><p class="s" style="margin:6px 0 0">Gibst du weniger aus als budgetiert, wird der Rest zum Budget des nächsten Monats addiert.</p>')+'</div>'}
+ const q="'"+x.id+"'",s=bstat(x,U.im);
+ return'<div class="pn"><button class="btn sm" onclick="quick('+q+')">Ausgabe erfassen</button><label>Budget anzeigen</label><div class="seg"><button class="'+(x.pv!="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'m\')">Monatlich</button><button class="'+(x.pv=="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'y\')">Jährlich</button></div>'+(x.pv=="y"?'':'<label class="ck" style="margin-top:14px"><input type="checkbox" '+(x.carry?"checked":"")+' onchange="spx('+q+',\'carry\',this.checked?1:0)"> Rest in den nächsten Monat übertragen</label>'+(s.carry>0?'<p class="s" style="margin:6px 0 0">Übertrag aus Vormonaten: '+F(s.carry)+'</p>':''))+'</div>'}
 function igroup(cat,m){
- const L0=D.items.filter(x=>x.cat==cat&&x.trk);
- if(L0.length==1&&!sumE(e=>e.cat==cat&&!e.item&&e.d.slice(0,7)==m&&ded(e))){
-  const x=L0[0],s=bstat(x,m),open=U.ep==x.id;
-  return'<div class="card"><div class="gt ed" onclick="U.ep=U.ep==\''+x.id+'\'?null:\''+x.id+'\';R()"><span>'+dot(cat)+'<b>'+cat+'</b></span><b class="nw '+(s.rest<0?"neg":"pos")+'">'+(s.rest<0?"Über Budget "+F(-s.rest):"Rest "+F(s.rest))+'</b></div><div class="pg '+pgc(s.S,s.B)+'"><i style="width:'+pgw(s.S,s.B)+'%"></i></div><p class="s" style="margin:6px 0 0">'+F(s.S)+' von '+F(s.B)+(s.pv=="y"?" im Jahr":" in diesem Monat")+' ausgegeben'+(s.carry>0?" (mit Übertrag "+F(s.carry)+")":"")+'</p>'+(open?ipn(x):"")+'</div>'}
- const g=gstat(cat,m),L=L0,sb=SUBS[cat],subs={};
- L.forEach(x=>{const s=sb?subOf(x):"";(subs[s]=subs[s]||[]).push(x)});
- let h='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b class="'+(g.rest<0?"neg":"pos")+'">'+(g.rest<0?"Über Budget "+F(-g.rest):"Rest "+F(g.rest))+'</b></div><div class="pg '+pgc(g.S,g.B)+'"><i style="width:'+pgw(g.S,g.B)+'%"></i></div><p class="s" style="margin:6px 0 4px">'+F(g.S)+' von '+F(g.B)+' in diesem Monat ausgegeben</p>';
- const keys=Object.keys(subs);
- keys.forEach(k=>{
-  if(keys.length>1&&k){const t=subs[k].reduce((s,x)=>{const b=bstat(x,m);return{B:s.B+(x.pv=="y"?mo(x):b.B),S:s.S+sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e))}},{B:0,S:0});h+='<div class="sub"><span>'+esc(k)+'</span><span>Rest '+F(t.B-t.S)+'</span></div>'}
-  subs[k].forEach(x=>{h+=irow(x,m)})});
- const fr=sumE(e=>e.cat==cat&&!e.item&&e.d.slice(0,7)==m&&ded(e));
- if(fr>0)h+='<div class="rw"><div>Ohne bestimmten Posten<small>direkt von der Gruppe abgezogen</small></div><b>−'+F(fr)+'</b></div>';
+ const mm=+m.slice(5),L=D.items.filter(x=>x.cat==cat&&(x.trk||x.freq!="y"||+x.mon==mm));
+ if(!L.length)return"";
+ const g=gstat(cat,m),allFix=L.every(x=>!x.trk),fr=sumE(e=>e.cat==cat&&!e.item&&e.d.slice(0,7)==m&&ded(e));
+ const rowF=(x,dt)=>{const k=pk(x.id,m),ok=!!D.paid[k],ex=sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e));
+  return'<div class="rw'+(ok?" done":"")+'"><button class="o'+(ok?" on":"")+'" onclick="tg(\''+k+'\')" aria-label="Bezahlt">'+(ok?"✓":"")+'</button><div>'+(dt?dot(cat):"")+esc(x.name)+(ex>0?'<small>+ '+Fd(ex)+' zusätzlich</small>':'')+'</div><b>'+Fd(x.amt)+'</b><button class="x" onclick="quick(\''+x.id+'\')" aria-label="Weitere Ausgabe erfassen">+</button></div>'};
+ const rowT=x=>{const s=bstat(x,m);
+  return'<div class="rw ed" onclick="'+oc(x.id)+'"><div>'+esc(x.name)+mbar(s.S,s.B,s.pv=="y"?" im Jahr":"")+'</div><b class="nw '+(s.rest<0?"neg":"pos")+'">'+F(s.rest)+'</b></div>'+(U.ep==x.id?ipn(x):"")};
+ if(L.length==1&&!fr){
+  const x=L[0];if(!x.trk)return'<div class="card">'+rowF(x,0)+'</div>';
+  const s=bstat(x,m);
+  return'<div class="card"><div class="gt ed" onclick="'+oc(x.id)+'"><span>'+dot(cat)+'<b>'+esc(x.name)+'</b></span><b class="nw '+(s.rest<0?"neg":"pos")+'">'+(s.rest<0?"Über Budget "+F(-s.rest):"Rest "+F(s.rest))+'</b></div>'+mbar(s.S,s.B,s.pv=="y"?" im Jahr":"")+(U.ep==x.id?ipn(x):"")+'</div>'}
+ const off=L.filter(x=>!x.trk&&!D.paid[pk(x.id,m)]).reduce((s,x)=>s+x.amt,0);
+ const rt=allFix?(off>0?"Offen "+F(off):"Alles bezahlt"):(g.rest<0?"Über Budget "+F(-g.rest):"Rest "+F(g.rest));
+ let h='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b class="nw '+((allFix?off<=0:g.rest>=0)?"pos":"neg")+'">'+rt+'</b></div>'+mbar(g.S,g.B);
+ const sb=SUBS[cat],subs={};L.forEach(x=>{const s=sb?subOf(x):"";(subs[s]=subs[s]||[]).push(x)});
+ Object.keys(subs).forEach(k=>{
+  if(k&&subs[k].length>1)h+='<div class="sub"><span>'+esc(k)+'</span></div>';
+  subs[k].forEach(x=>{h+=x.trk?rowT(x):rowF(x,0)})});
+ if(fr>0)h+='<div class="rw"><div>Weitere Ausgaben</div><b>−'+Fd(fr)+'</b></div>';
  return h+'</div>'}
 function eform(m){
  const t=new Date(),today=t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
  return'<div class="card" id="ef"><h2>Ausgabe erfassen</h2><div class="cr"><div><label>Betrag</label><input id="ea" type="number" step="0.01" inputmode="decimal" placeholder="0.00"></div><div><label>Datum</label><input id="ed" type="date" max="'+today+'" value="'+(m==curK()?today:m+"-15")+'"></div><div><label>Gruppe</label><select id="ec" onchange="U.pi=null;fi()"></select></div><div><label>Posten</label><select id="ei"></select></div></div><label>Notiz (optional)</label><input id="en" placeholder="z. B. Wocheneinkauf">'
-  +'<label class="ck" style="margin-top:14px"><input type="checkbox" id="eo" onchange="$(\'exw\').style.display=this.checked?\'\':\'none\'"> Einmalige, unvorhergesehene Ausgabe</label><div id="exw" style="display:none"><label>Vom Budget abziehen?</label><select id="ex"><option value="1">Ja, vom Budget dieser Gruppe abziehen</option><option value="0">Nein, nur als einmalige Ausgabe festhalten</option></select></div>'
+  +'<label class="ck" style="margin-top:14px"><input type="checkbox" id="eo" onchange="$(\'exw\').style.display=this.checked?\'\':\'none\'"> Einmalig und unvorhergesehen</label><div id="exw" style="display:none"><label>Vom Budget abziehen?</label><select id="ex"><option value="1">Ja, vom Budget abziehen</option><option value="0">Nein, nur festhalten</option></select></div>'
   +'<button class="btn" onclick="addE()">Speichern</button><button class="lk" onclick="U.ae=0;R()">Abbrechen</button></div>'}
 function tIst(){
- const m=U.im,cur=curK(),cats=trkCats();
+ const m=U.im,cur=curK();
  let h='<div class="mn"><button onclick="imv(-1)" aria-label="Voriger Monat">‹</button><h2>'+ML(m)+'</h2><button onclick="imv(1)" '+(m>=cur?"disabled":"")+' aria-label="Nächster Monat">›</button></div>';
  if(U.msg)h+='<div class="note">'+esc(U.msg)+'</div>';
  h+=U.ae?eform(m):'<button class="btn" onclick="U.ae=1;U.msg=\'\';R()">+ Ausgabe erfassen</button>';
  h+=cmp3(m);
- if(!cats.length)h+='<div class="card"><h2>Budget je Gruppe</h2><p class="s" style="margin:0">Noch kein Posten wird verfolgt. Öffne unter Budget einen Posten und aktiviere «Im Ist-Vergleich verfolgen», zum Beispiel für Lebensmittel, Restaurant oder Freizeit.</p></div>';
- cats.forEach(c=>{h+=igroup(c,m)});
+ allCats().forEach(c=>{h+=igroup(c,m)});
  const L=D.exp.filter(e=>e.d.slice(0,7)==m).sort((a,b)=>b.d.localeCompare(a.d)||b.id.localeCompare(a.id));
- h+='<div class="card"><h2>Erfasste Ausgaben</h2>'+(L.length?L.map(e=>{const x=e.item?D.items.find(z=>z.id==e.item):null,tg=e.once?(e.ded===0?"einmalig, nicht vom Budget abgezogen":"einmalig"):"";return'<div class="rw"><div>'+dot(e.cat)+esc(x?x.name:e.cat)+'<small>'+e.d.slice(8)+"."+e.d.slice(5,7)+"."+(e.note?" · "+esc(e.note):"")+(tg?" · "+tg:"")+'</small></div><b>−'+Fd(e.amt)+'</b><button class="x" onclick="delE(\''+e.id+'\')" aria-label="Löschen">✕</button></div>'}).join(""):'<p class="s" style="margin:0">In diesem Monat wurde noch nichts erfasst.</p>')+'</div>';
+ h+='<div class="card"><h2>Erfasste Ausgaben</h2>'+(L.length?L.map(e=>{const x=e.item?D.items.find(z=>z.id==e.item):null;return'<div class="rw"><div>'+dot(e.cat)+esc(x?x.name:e.cat)+'<small>'+e.d.slice(8)+"."+e.d.slice(5,7)+"."+(e.note?" · "+esc(e.note):"")+(e.once?" · einmalig":"")+'</small></div><b>−'+Fd(e.amt)+'</b><button class="x" onclick="delE(\''+e.id+'\')" aria-label="Löschen">✕</button></div>'}).join(""):'<p class="s" style="margin:0">Noch nichts erfasst.</p>')+'</div>';
  return h}
+
+/* ===== Vermögen: Verlauf und Prognose in einer Grafik ===== */
+function wchart(hs,fs){
+ const all=hs.concat(fs),idx=k=>(+k.slice(0,4))*12+(+k.slice(5)-1),i0=idx(all[0].m),span=Math.max(idx(all[all.length-1].m)-i0,1),v=all.map(p=>p.v),mn=Math.min(...v),mx=Math.max(...v),pad=(mx-mn)*.12||Math.abs(mx)*.05||1,lo=mn-pad,hi=mx+pad,W=320,H=120,f=n=>n.toFixed(1);
+ const P=p=>f((idx(p.m)-i0)/span*W)+","+f(H-(p.v-lo)/(hi-lo)*H),pl=a=>a.map(P).join(" "),L=hs[hs.length-1],xs=(idx(L.m)-i0)/span*W,xy=P(L).split(",");
+ let s='<svg viewBox="0 0 330 135" style="width:100%;display:block;overflow:visible;margin-top:10px">';
+ if(hs.length>1)s+='<polygon points="0,'+H+' '+pl(hs)+' '+f(xs)+','+H+'" fill="var(--pri)" opacity=".12"/><polyline points="'+pl(hs)+'" fill="none" stroke="var(--pri)" stroke-width="2.5" stroke-linejoin="round"/>';
+ if(fs.length>1)s+='<line x1="'+f(xs)+'" x2="'+f(xs)+'" y1="0" y2="'+H+'" stroke="var(--ln)" stroke-width="1.5" stroke-dasharray="3 3"/><polyline points="'+pl(fs)+'" fill="none" stroke="var(--pos)" stroke-width="2.5" stroke-dasharray="6 5" stroke-linejoin="round"/>';
+ s+='<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="5" fill="var(--gold)"/></svg><div class="ax"><span>'+ML(all[0].m)+'</span>'+(fs.length>1?'<span>heute</span>':'')+'<span>'+ML(all[all.length-1].m)+'</span></div>';
+ return s}
+function wcard(){
+ if(!D.started)return'<div class="card"><h2>Vermögen</h2><p class="s">Trag dein Startvermögen ein, dann siehst du hier den Verlauf.</p><button class="btn" onclick="tab(\'set\')">Startvermögen festlegen</button></div>';
+ const w=wmodel(),hs=(D.past||[]).concat(w.pts),d=w.total-hs[0].v,hr=U.hr==undefined?1:U.hr,fs=hr>0?fser(hr):[];
+ const ch=[[0,"Verlauf"],[1,"+1 J."],[5,"+5 J."],[10,"+10 J."]].map(o=>'<button class="'+(hr==o[0]?"on":"")+'" onclick="U.hr='+o[0]+';R()">'+o[1]+'</button>').join("");
+ let h='<div class="card"><h2>Vermögen</h2><b class="big2">'+F(w.total)+'</b><div class="chips" style="margin:10px 0 0">'+ch+'</div>'+wchart(hs,fs);
+ if(hs.length>1)h+='<div class="lg"><span>Seit '+ML(hs[0].m)+'</span><b class="'+(d>=0?"pos":"neg")+'">'+(d>=0?"+":"−")+F(Math.abs(d))+'</b></div>';
+ if(fs.length>1)h+='<div class="lg"><span>Prognose '+ML(fs[fs.length-1].m)+'</span><b>'+F(fs[fs.length-1].v)+'</b></div>';
+ return h+'</div>'}
 
 /* ===== Start ===== */
 function tHome(){
  const c=calc(),m=curK(),t=mtot(m),P=[["Steuern (geschätzt)",c.taxM,"#f59e0b"],["Ausgaben (Budget)",c.exp,"#3b82f6"],["Vorsorge und Anlagen",c.sav,"#8b5cf6"],["Frei zum Sparen",Math.max(c.free,0),"#10b981"]];
- const keys=Object.keys(c.by).filter(k=>!SAV.includes(k)).sort((a,b)=>c.by[b]-c.by[a]),tot=c.exp||1,has=t.B>0,n=new Date(),left=new Date(n.getFullYear(),n.getMonth()+1,0).getDate()-n.getDate();
- let h='<div class="hero"><small>'+(has?"Verbleibendes Budget · "+MN[n.getMonth()]:"Frei zum Sparen pro Monat")+'</small><b class="big">'+F(has?t.rest:c.free)+'</b>';
- if(has)h+='<div class="pg wh"><i style="width:'+pgw(t.S,t.B)+'%"></i></div><p class="hs">'+(t.rest<0?"Budget um "+F(-t.rest)+" überschritten":F(t.S)+" von "+F(t.B)+" ausgegeben, noch "+left+(left==1?" Tag":" Tage")+" im Monat")+'</p>';
- else h+='<p class="hs">Aktiviere im Budget «Im Ist-Vergleich verfolgen», dann siehst du hier dein Restbudget.</p>';
+ const keys=Object.keys(c.by).filter(k=>!SAV.includes(k)).sort((a,b)=>c.by[b]-c.by[a]),tot=c.exp||1,n=new Date(),left=new Date(n.getFullYear(),n.getMonth()+1,0).getDate()-n.getDate();
+ let h='<div class="hero"><small>Verbleibendes Budget · '+MN[n.getMonth()]+'</small><b class="big">'+F(t.rest)+'</b><div class="pg wh"><i style="width:'+pgw(t.S,t.B)+'%"></i></div><p class="hs">'+(t.rest<0?"Budget um "+F(-t.rest)+" überschritten":F(t.S)+" von "+F(t.B)+" ausgegeben, noch "+left+(left==1?" Tag":" Tage"))+'</p>';
  h+='<div class="g"><div><b>'+F(t.S)+'</b><span>ausgegeben</span></div><div><b>'+F(t.B)+'</b><span>Budget</span></div><div><b>'+F(c.free)+'</b><span>frei zum Sparen</span></div></div><button class="btn hb2" onclick="goExp()">+ Ausgabe erfassen</button></div>';
- h+=cmp3(m);
+ h+=wcard()+cmp3(m);
  h+='<div class="card"><h2>Wohin dein Einkommen fliesst</h2><p class="s">Netto im Durchschnitt: '+F(c.netM)+' pro Monat</p>'+bar(P)+P.map(p=>'<div class="lg"><span><u style="background:'+p[2]+'"></u>'+p[0]+'</span><b>'+F(p[1])+'</b></div>').join("")+'</div>';
  return h+'<div class="card"><h2>Ausgaben nach Kategorie</h2>'+donut(c.by,keys,tot)+keys.map(k=>'<div class="lg"><span>'+dot(k)+k+'<em>'+Math.round(c.by[k]/tot*100)+' %</em></span><b>'+F(c.by[k])+'</b></div>').join("")+'</div>'}
 
 /* ===== Budget ===== */
 function pn(i){
  const x=D.items[i],sb=SUBS[x.cat],cs=Object.keys(CC).filter(k=>k!="Auto"||carOn()||x.cat=="Auto");
- return'<div class="pn"><div class="cr"><div><label>Bezeichnung</label><input value="'+esc(x.name)+'" onchange="ue('+i+',\'name\',this.value)"></div><div><label>Betrag '+(x.freq=="y"?"pro Jahr":"pro Monat")+'</label><input type="number" inputmode="decimal" value="'+x.amt+'" onchange="ue('+i+',\'amt\',+this.value)"></div><div><label>Gruppe</label><select onchange="ue('+i+',\'cat\',this.value)">'+cs.map(k=>'<option'+(x.cat==k?" selected":"")+'>'+k+'</option>').join("")+'</select></div>'+(sb?'<div><label>Untergruppe</label><select onchange="ue('+i+',\'sub\',this.value)">'+sb.map(s=>'<option'+(subOf(x)==s?" selected":"")+'>'+s+'</option>').join("")+'</select></div>':'')+'<div><label>Rhythmus</label><select onchange="ue('+i+',\'freq\',this.value)"><option value="m"'+(x.freq=="m"?" selected":"")+'>monatlich</option><option value="y"'+(x.freq=="y"?" selected":"")+'>jährlich</option></select></div><div><label>Zahltag (leer = automatisch)</label><input type="number" min="1" max="31" inputmode="numeric" value="'+(x.day>0?x.day:"")+'" onchange="ue('+i+',\'day\',+this.value||0)"></div>'+(x.freq=="y"?'<div><label>Monat der Zahlung</label><select onchange="ue('+i+',\'mon\',+this.value)">'+MN.map((m,k)=>'<option value="'+(k+1)+'"'+(x.mon==k+1?" selected":"")+'>'+m+'</option>').join("")+'</select></div>':'')+'</div>'
-  +(SAV.includes(x.cat)?'':'<label class="ck" style="margin-top:14px"><input type="checkbox" '+(x.trk?"checked":"")+' onchange="ue('+i+',\'trk\',this.checked?1:0)"> Im Ist-Vergleich verfolgen</label><p class="s" style="margin:4px 0 0">Für Posten, die jeden Monat anders ausfallen. Fixe Beträge brauchen das nicht.</p>')
+ return'<div class="pn"><div class="cr"><div><label>Bezeichnung</label><input value="'+esc(x.name)+'" onchange="ue('+i+',\'name\',this.value)"></div><div><label>Betrag '+(x.freq=="y"?"pro Jahr":"pro Monat")+'</label><input type="number" inputmode="decimal" value="'+x.amt+'" onchange="ue('+i+',\'amt\',+this.value)"></div><div><label>Gruppe</label><select onchange="ue('+i+',\'cat\',this.value)">'+cs.map(k=>'<option'+(x.cat==k?" selected":"")+'>'+k+'</option>').join("")+'</select></div>'+(sb?'<div><label>Untergruppe</label><select onchange="ue('+i+',\'sub\',this.value)">'+sb.map(s=>'<option'+(subOf(x)==s?" selected":"")+'>'+s+'</option>').join("")+'</select></div>':'')+'<div><label>Rhythmus</label><select onchange="ue('+i+',\'freq\',this.value)"><option value="m"'+(x.freq=="m"?" selected":"")+'>monatlich</option><option value="y"'+(x.freq=="y"?" selected":"")+'>jährlich</option></select></div><div><label>Zahltag (optional)</label><input type="number" min="1" max="31" inputmode="numeric" value="'+(x.day>0?x.day:"")+'" onchange="ue('+i+',\'day\',+this.value||0)"></div>'+(x.freq=="y"?'<div><label>Monat der Zahlung</label><select onchange="ue('+i+',\'mon\',+this.value)">'+MN.map((m,k)=>'<option value="'+(k+1)+'"'+(x.mon==k+1?" selected":"")+'>'+m+'</option>').join("")+'</select></div>':'')+'</div>'
+  +(SAV.includes(x.cat)?'':'<label>Art</label><div class="seg"><button class="'+(!x.trk?"on":"")+'" onclick="ue('+i+',\'trk\',0)">Fixbetrag</button><button class="'+(x.trk?"on":"")+'" onclick="ue('+i+',\'trk\',1)">Variabel</button></div>')
   +'<div class="two"><button class="btn ghost" onclick="te(null)">Fertig</button><button class="btn ghost dng" onclick="if(confirm(\'Diesen Posten löschen?\'))di('+i+')">Löschen</button></div></div>'}
 function ue(i,k,v){D.items[i][k]=v;if(k=="cat")D.items[i].sub="";if(k=="freq")D.items[i].pv=v=="y"?"y":"m";sv();R()}
 function tBud(){
  const seg=(a,b,va,vb,cur,fa,fb)=>'<div class="seg" style="margin-bottom:12px"><button class="'+(cur==va?"on":"")+'" onclick="'+fa+'">'+a+'</button><button class="'+(cur==vb?"on":"")+'" onclick="'+fb+'">'+b+'</button></div>';
- let h=seg("Ausgaben","Einkommen","exp","inc",U.bs=="inc"?"inc":"exp","U.bs=\'exp\';R()","U.bs=\'inc\';R()");
+ let h=seg("Kosten","Einkommen","exp","inc",U.bs=="inc"?"inc":"exp","U.bs=\'exp\';R()","U.bs=\'inc\';R()");
  if(U.bs=="inc")return h+tInc();
  const c=calc(),k=U.bv=="y"?12:1;
  h+=seg("Monatlich","Jährlich","m","y",U.bv=="y"?"y":"m","U.bv=\'m\';R()","U.bv=\'y\';R()");
- h+='<div class="card"><h2>Budget '+(k==12?"pro Jahr":"pro Monat")+'</h2>'+[["Einkommen (netto)",c.netM*k],["Steuern (geschätzt)",-c.taxM*k],["Ausgaben",-c.exp*k],["Vorsorge und Anlagen",-c.sav*k]].map(r=>'<div class="lg"><span>'+r[0]+'</span><b>'+(r[1]<0?"−":"")+F(Math.abs(r[1]))+'</b></div>').join("")+'<div class="lg tot"><b>Frei zum Sparen</b><b class="'+(c.free<0?"neg":"pos")+'">'+F(c.free*k)+'</b></div></div>';
+ h+='<div class="card">'+[["Einkommen (netto)",c.netM*k],["Steuern (geschätzt)",-c.taxM*k],["Ausgaben",-c.exp*k],["Vorsorge und Anlagen",-c.sav*k]].map(r=>'<div class="lg"><span>'+r[0]+'</span><b>'+(r[1]<0?"−":"")+F(Math.abs(r[1]))+'</b></div>').join("")+'<div class="lg tot"><b>Frei zum Sparen</b><b class="'+(c.free<0?"neg":"pos")+'">'+F(c.free*k)+'</b></div></div>';
+ const row=(x,i,dt)=>'<div class="rw ed" onclick="te(\''+x.id+'\')"><div>'+(dt?dot(x.cat):"")+esc(x.name)+'</div><b>'+F(mo(x)*k)+'</b><span class="chev">›</span></div>'+(U.ed==x.id?pn(i):"");
  Object.keys(CC).forEach(cat=>{
   const L=D.items.map((x,i)=>[x,i]).filter(p=>p[0].cat==cat);if(!L.length)return;
-  if(L.length==1){const x=L[0][0];h+='<div class="card"><div class="rw ed" onclick="te(\''+x.id+'\')"><div>'+dot(cat)+'<b>'+esc(x.name)+'</b><small>'+(x.name==cat?"":cat+" · ")+(x.freq=="y"?F(x.amt)+" jährlich im "+MN[x.mon-1]:F(x.amt)+" monatlich")+(x.day>0?", Zahltag "+x.day+".":"")+(x.trk?" · Ist-Vergleich":"")+'</small></div><b>'+F(mo(x)*k)+'</b><span class="chev">›</span></div>'+(U.ed==x.id?pn(L[0][1]):"")+'</div>';return}
-  const sb=SUBS[cat],subs={};L.forEach(p=>{const s=sb?subOf(p[0]):"";(subs[s]=subs[s]||[]).push(p)});const ks=Object.keys(subs);
+  if(L.length==1){h+='<div class="card">'+row(L[0][0],L[0][1],1)+'</div>';return}
+  const sb=SUBS[cat],subs={};L.forEach(p=>{const s=sb?subOf(p[0]):"";(subs[s]=subs[s]||[]).push(p)});
   h+='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b>'+F(c.by[cat]*k)+'</b></div>';
-  ks.forEach(s=>{
-   if(ks.length>1&&s)h+='<div class="sub"><span>'+esc(s)+'</span><span>'+F(subs[s].reduce((t,p)=>t+mo(p[0]),0)*k)+'</span></div>';
-   subs[s].forEach(p=>{const x=p[0];h+='<div class="rw ed" onclick="te(\''+x.id+'\')"><div>'+esc(x.name)+'<small>'+(x.freq=="y"?F(x.amt)+" jährlich im "+MN[x.mon-1]:F(x.amt)+" monatlich")+(x.day>0?", Zahltag "+x.day+".":"")+(x.trk?" · Ist-Vergleich":"")+'</small></div><b>'+F(mo(x)*k)+'</b><span class="chev">›</span></div>'+(U.ed==x.id?pn(p[1]):"")})});
+  Object.keys(subs).forEach(s=>{
+   if(s&&subs[s].length>1)h+='<div class="sub"><span>'+esc(s)+'</span><span>'+F(subs[s].reduce((t,p)=>t+mo(p[0]),0)*k)+'</span></div>';
+   subs[s].forEach(p=>{h+=row(p[0],p[1],0)})});
   h+='</div>'});
- if(!U.ab)return h+'<button class="btn" onclick="U.ab=1;R()">+ Ausgabe hinzufügen</button>';
- return h+'<div class="card"><h2>Neue Ausgabe</h2><label>Bezeichnung</label><input id="nn" placeholder="z. B. Spotify"><div class="cr"><div><label>Gruppe</label><select id="nc" onchange="fs()">'+Object.keys(CC).filter(k=>k!="Auto"||carOn()).map(k=>'<option>'+k+'</option>').join("")+'</select></div><div><label>Betrag</label><input id="na" type="number" inputmode="decimal"></div><div id="nsw" style="display:none"><label>Untergruppe</label><select id="ns"></select></div><div><label>Rhythmus</label><select id="nf" onchange="$(\'nm\').parentNode.style.display=this.value==\'y\'?\'\':\'none\'"><option value="m">monatlich</option><option value="y">jährlich</option></select></div><div><label>Zahltag (optional)</label><input id="nd" type="number" min="1" max="31" inputmode="numeric" placeholder="automatisch"></div><div style="display:none"><label>Monat der Zahlung</label><select id="nm">'+MN.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("")+'</select></div></div><label class="ck" style="margin-top:14px"><input id="nt" type="checkbox"> Im Ist-Vergleich verfolgen</label><button class="btn" onclick="ai()">Hinzufügen</button><button class="lk" onclick="U.ab=0;R()">Abbrechen</button></div>'}
+ if(!U.ab)return h+'<button class="btn" onclick="U.ab=1;R()">+ Posten hinzufügen</button>';
+ return h+'<div class="card"><h2>Neuer Posten</h2><label>Bezeichnung</label><input id="nn" placeholder="z. B. Spotify"><div class="cr"><div><label>Gruppe</label><select id="nc" onchange="fs()">'+Object.keys(CC).filter(k=>k!="Auto"||carOn()).map(k=>'<option>'+k+'</option>').join("")+'</select></div><div><label>Betrag</label><input id="na" type="number" inputmode="decimal"></div><div id="nsw" style="display:none"><label>Untergruppe</label><select id="ns"></select></div><div><label>Rhythmus</label><select id="nf" onchange="$(\'nm\').parentNode.style.display=this.value==\'y\'?\'\':\'none\'"><option value="m">monatlich</option><option value="y">jährlich</option></select></div><div><label>Zahltag (optional)</label><input id="nd" type="number" min="1" max="31" inputmode="numeric" placeholder="automatisch"></div><div style="display:none"><label>Monat der Zahlung</label><select id="nm">'+MN.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("")+'</select></div></div><label class="ck" style="margin-top:14px"><input id="nt" type="checkbox"> Variabel (Budgetbalken statt Häkchen)</label><button class="btn" onclick="ai()">Hinzufügen</button><button class="lk" onclick="U.ab=0;R()">Abbrechen</button></div>'}
 function ai(){const n=$("nn").value.trim(),a=+$("na").value,k=$("nc").value;if(!n||!(a>0))return;const f=$("nf").value;D.items.push({id:"n"+Date.now(),name:n,cat:k,sub:SUBS[k]?$("ns").value:"",amt:a,freq:f,day:+$("nd").value||0,mon:+$("nm").value,bal:0,rate:k=="Vorsorge"?2:5,trk:$("nt").checked?1:0,pv:f=="y"?"y":"m",carry:0});U.ab=0;sv();R()}
 
 /* ===== Vermögen ===== */
@@ -374,11 +405,11 @@ function lchart(ser){
 function wform(first){
  const w=wmodel(),r=v=>Math.round(v);
  const rows=[["c","Konto / Cash",first?D.cash:w.cash]].concat(D.items.filter(x=>SAV.includes(x.cat)).map(x=>[x.id,x.name,first?(+x.bal||0):w.inv[x.id]]));
- return'<div class="card"><h2>'+(first?"Startvermögen festlegen":"Kontostände abgleichen")+'</h2><p class="s">'+(first?"Trag ein, was du heute auf deinen Konten hast. Die App ergänzt das danach jeden Monat mit deinen Einnahmen und Ausgaben. Monate ohne erfasste Ausgaben rechnet sie mit dem Budget. Am genauesten wird es, wenn du zum Monatsanfang startest.":"Trag die echten Kontostände von heute ein. Der Verlauf läuft ab jetzt mit diesen Werten weiter.")+'</p>'+(first?'<label for="wm">Beginn der Aufzeichnung</label><input id="wm" type="month" value="'+curK()+'" max="'+curK()+'">':'')+rows.map(q=>'<div class="rw"><div>'+esc(q[1])+'</div><input id="wb-'+q[0]+'" type="number" inputmode="decimal" value="'+r(q[2])+'"></div>').join("")+'<button class="btn" onclick="setBal('+(first?1:0)+')">Speichern</button>'+(first?'':'<button class="lk" onclick="U.wf=0;R()">Abbrechen</button>')+'</div>'}
+ return'<div class="card"><h2>'+(first?"Startvermögen festlegen":"Kontostände abgleichen")+'</h2><p class="s">'+(first?"Trag ein, was du heute auf deinen Konten hast. Danach rechnet die App jeden Monat Einnahmen und Ausgaben dazu.":"Trag die echten Kontostände von heute ein. Der Verlauf läuft danach mit diesen Werten weiter.")+'</p>'+(first?'<label for="wm">Beginn der Aufzeichnung</label><input id="wm" type="month" value="'+curK()+'" max="'+curK()+'">':'')+rows.map(q=>'<div class="rw"><div>'+esc(q[1])+'</div><input id="wb-'+q[0]+'" type="number" inputmode="decimal" value="'+r(q[2])+'"></div>').join("")+'<button class="btn" onclick="setBal('+(first?1:0)+')">Speichern</button>'+'</div>'}
 function setBal(first){
  const w=wmodel();if(!first)D.past=(D.past||[]).concat(w.pts.slice(0,-1));
  D.cash=+$("wb-c").value||0;D.items.forEach(x=>{if(SAV.includes(x.cat)){const e=$("wb-"+x.id);if(e)x.bal=+e.value||0}});
- D.start=first&&/^\d{4}-\d{2}$/.test($("wm").value)?$("wm").value:curK();D.started=1;U.wf=0;sv();R()}
+ D.start=first&&/^\d{4}-\d{2}$/.test($("wm").value)?$("wm").value:curK();D.started=1;sv();R();bn("Kontostände gespeichert");setTimeout(()=>bn(""),2500)}
 function mser(y){const c=calc(),S=[];for(let m=0;m<12;m++){const o=outM(mkey(y,m));S.push({m,i:c.netM,e:o.out,real:o.real})}return S}
 function mchart(){
  const y=U.by,S=mser(y),H=130,g=320/12,bw=9,mx=Math.max(...S.map(p=>Math.max(p.i,p.e)),1),Y=v=>H-v/mx*H,f=n=>n.toFixed(1);
@@ -393,14 +424,9 @@ function mchart(){
 function tWea(){
  const seg='<div class="seg" style="margin-bottom:14px"><button class="'+(U.ws!="prog"?"on":"")+'" onclick="U.ws=\'ov\';R()">Übersicht</button><button class="'+(U.ws=="prog"?"on":"")+'" onclick="U.ws=\'prog\';R()">Prognose</button></div>';
  if(U.ws=="prog")return seg+'<div class="card" id="wc"></div><div class="card"><h2>Zeitraum</h2><div class="seg" style="margin-top:8px">'+[1,5,10,20,30].map(y=>'<button class="'+(D.yrs==y?"on":"")+'" onclick="D.yrs='+y+';sv();R()">'+y+' J.</button>').join("")+'</div></div><div class="card"><h2>Rendite pro Konto</h2><p class="s">Erwartete Rendite pro Jahr für die Prognose.</p>'+D.items.map((x,i)=>[x,i]).filter(p=>SAV.includes(p[0].cat)).map(p=>'<div class="rw"><div>'+esc(p[0].name)+'<small>'+F(mo(p[0]))+' pro Monat</small></div><input class="sm" type="number" step="0.1" inputmode="decimal" value="'+(p[0].rate||0)+'" onchange="ue('+p[1]+',\'rate\',+this.value)"><span class="u">%</span></div>').join("")+'<div class="rw"><div>Konto / Cash</div><input class="sm" type="number" step="0.1" inputmode="decimal" value="'+D.cashR+'" onchange="D.cashR=+this.value;sv();R()"><span class="u">%</span></div></div>';
- if(!D.started)return seg+wform(1);
- const w=wmodel(),ser=(D.past||[]).concat(w.pts),d=w.total-ser[0].v,n=new Date(),o=outM(curK()).out,mnow=calc().netM-o;
- let h=seg+'<div class="card"><h2>Vermögen</h2><b class="big2">'+F(w.total)+'</b><p class="s">Stand zu Beginn von '+ML(curK())+'. Der laufende Monat wird am Monatsende verrechnet.</p>';
- if(ser.length>1)h+=lchart(ser)+'<div class="lg"><span>Start ('+ML(ser[0].m)+')</span><b>'+F(ser[0].v)+'</b></div><div class="lg"><span>Veränderung seit Start</span><b class="'+(d>=0?"pos":"neg")+'">'+(d>=0?"+":"−")+F(Math.abs(d))+'</b></div>';
- else h+='<p class="s" style="margin:8px 0 0">Der Verlauf entsteht, sobald ein Monat abgeschlossen ist.</p>';
- h+='<div class="lg"><span>Dieser Monat (geschätzt)</span><b class="'+(mnow>=0?"pos":"neg")+'">'+(mnow>=0?"+":"−")+F(Math.abs(mnow))+'</b></div></div>';
- h+='<div class="card"><h2>Konten</h2>'+[["Konto / Cash",w.cash,D.cash]].concat(w.sav.map(x=>[x.name,w.inv[x.id],+x.bal||0])).map(q=>'<div class="rw"><div>'+esc(q[0])+'<small>Start '+F(q[2])+'</small></div><b>'+F(q[1])+'</b></div>').join("")+'<button class="btn ghost" onclick="U.wf=1;R()">Kontostände abgleichen</button></div>';
- if(U.wf)h=seg+wform(0)+h.slice(seg.length);
+ let h=seg+wcard();
+ const w=wmodel();
+ h+='<div class="card"><h2>Konten</h2>'+[["Konto / Cash",w.cash],...w.sav.map(x=>[x.name,w.inv[x.id]])].map(q=>'<div class="rw"><div>'+esc(q[0])+'</div><b>'+F(q[1])+'</b></div>').join("")+'<button class="btn ghost" onclick="tab(\'set\')">Kontostände abgleichen</button></div>';
  return h+mchart()}
 function wc(){
  const{A,S}=proj(),n=D.yrs*12,end=S.reduce((s,o)=>s+o[n][0],0),inn=S.reduce((s,o)=>s+o[n][1],0),y=new Date().getFullYear();
@@ -457,13 +483,13 @@ function konto(){
  return'<div class="card"><h2>Konto</h2><p class="s">Angemeldet als '+esc(auth.currentUser?auth.currentUser.email:"")+'. Deine Daten werden mit allen Geräten synchronisiert.</p><button class="btn ghost" onclick="auth.signOut()">Abmelden</button><button class="btn ghost dng" onclick="wipe()">Alle Einträge löschen und leer starten</button></div>'}
 function tSet(){
  const th=(v,l)=>'<button class="'+(TH==v?"on":"")+'" onclick="setTheme(\''+v+'\')">'+l+'</button>';
- return'<div class="card"><h2>Darstellung</h2><div class="seg">'+th("auto","Automatisch")+th("light","Hell")+th("dark","Dunkel")+'</div><label>Währung</label><select onchange="D.cur=this.value;sv();R()">'+["CHF","EUR","USD","GBP"].map(c=>'<option'+(D.cur==c?" selected":"")+'>'+c+'</option>').join("")+'</select></div>'+carSw()+konto()}
+ return'<div class="card"><h2>Darstellung</h2><div class="seg">'+th("auto","Automatisch")+th("light","Hell")+th("dark","Dunkel")+'</div><label>Währung</label><select onchange="D.cur=this.value;sv();R()">'+["CHF","EUR","USD","GBP"].map(c=>'<option'+(D.cur==c?" selected":"")+'>'+c+'</option>').join("")+'</select></div>'+wform(!D.started)+carSw()+konto()}
 function tMore(){
  const t=new Date(),L=due(t.getFullYear(),t.getMonth()).filter(l=>!l.ok).length,n=tipsList().filter(x=>x[0]!="good").length;
  const r=(p,a,s)=>'<button class="lr" onclick="tab(\''+p+'\')"><span><b>'+a+'</b><small>'+s+'</small></span><i>›</i></button>';
- return r("chk","Checkliste",L?L+" Zahlungen offen in diesem Monat":"Zahlungen abhaken und im Kalender speichern")+r("tip","Tipps",n?n+" Hinweise zum Sparen":"Sparpotenzial und Richtwerte")+r("set","Einstellungen","Darstellung, Währung, Auto, Konto")}
+ return r("chk","Checkliste",L?L+" Zahlungen offen in diesem Monat":"Zahlungen abhaken und im Kalender speichern")+r("tip","Tipps",n?n+" Hinweise zum Sparen":"Sparpotenzial und Richtwerte")+r("set","Einstellungen","Startvermögen, Darstellung, Auto, Konto")}
 const IC={home:"M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",bud:"M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l11-4v4M16 14h2",ist:"M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",goal:"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM12 12h.01",wea:"M3 17l6-6 4 4 8-8M15 7h6v6",more:"M5 12h.01M12 12h.01M19 12h.01"};
-const NAV=[["home","Start"],["bud","Budget"],["ist","Ist"],["goal","Ziele"],["wea","Vermögen"],["more","Mehr"]];
+const NAV=[["home","Start"],["bud","Budget"],["ist","Ausgaben"],["goal","Ziele"],["wea","Vermögen"],["more","Mehr"]];
 const PAGES={home:tHome,bud:tBud,ist:tIst,goal:tGoals,wea:tWea,more:tMore,chk:tChk,tip:tTip,set:tSet};
 function R(){
  const sub=["chk","tip","set"].includes(U.tab),act=sub?"more":U.tab;
@@ -512,7 +538,7 @@ function calAll(){const L=D.items.filter(x=>x.day>0&&!x.trk),ev=[];L.forEach(x=>
  if(!ev.length){bn("Es gibt keine Zahlungen mit Zahltag.");setTimeout(()=>bn(""),3000);return}dlIcs("finanzplaner-zahlungen.ics",ev)}
 function calRem(){
  const v=+$("rd").value,rr="FREQ=MONTHLY;BYMONTHDAY="+v;
- dlIcs("finanzplaner-erinnerung.ics",icsEv("monatlich","Finanzplaner: Daten nachtragen","Ist-Werte (Lebensmittel, Restaurant, Kleider usw.) und Kontostände (Konto, Säule 3a, Anlagen) nachtragen: "+APPURL,nextOcc(v<0?31:v,"m",0),"18",rr,["PT0M"]))}
+ dlIcs("finanzplaner-erinnerung.ics",icsEv("monatlich","Finanzplaner: Daten nachtragen","Ausgaben (Lebensmittel, Restaurant, Kleider usw.) nachtragen und Fixkosten abhaken: "+APPURL,nextOcc(v<0?31:v,"m",0),"18",rr,["PT0M"]))}
 function calCard(){
  return'<div class="card"><h2>Kalender</h2><p class="s">Speichere deine Zahlungen als Kalendereintrag. Tippe oben bei einer Zahlung auf das Kalendersymbol oder nimm alle auf einmal. Öffne die heruntergeladene Datei, dann landet sie in deinem Kalender und wiederholt sich automatisch. Ändert sich ein Betrag oder Zahltag, lade die Datei neu.</p><button class="btn ghost" onclick="calAll()">Alle Zahlungen in den Kalender</button>'
   +'<label for="rd" style="margin-top:14px">Monatliche Erinnerung: Daten nachtragen</label><select id="rd">'+[[1,"am 1. des Monats"],[3,"am 3. des Monats"],[5,"am 5. des Monats"],[10,"am 10. des Monats"],[25,"am 25. des Monats"],[-1,"am letzten Tag des Monats"]].map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select><button class="btn ghost" onclick="calRem()">Erinnerung in den Kalender</button></div>'}
