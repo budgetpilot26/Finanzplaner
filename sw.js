@@ -1,6 +1,6 @@
 // Service Worker: macht die App installierbar und startet sie auch ohne Internet.
 // Strategie: erst Netzwerk (damit Änderungen sofort ankommen), sonst gespeicherte Kopie.
-var CACHE = "finanzplaner-v8";
+var CACHE = "finanzplaner-v9";
 var SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 var HOSTS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
