@@ -17,8 +17,8 @@ items:[
 {name:"Krankenkasse",cat:"Krankenkasse",amt:380,freq:"m",day:26,mon:1},
 {name:"Risikolebensversicherung",cat:"Versicherungen",sub:"Risikolebensversicherung",amt:35,freq:"m",day:0,mon:1},
 {name:"Rechtsschutz",cat:"Versicherungen",sub:"Rechtsschutz",amt:280,freq:"y",day:0,mon:1},
-{name:"Säule 3a",cat:"Vorsorge",amt:588,freq:"m",day:27,mon:1,bal:18000,rate:2.5},
-{name:"Säule 3b",cat:"Vorsorge",amt:200,freq:"m",day:27,mon:1,bal:8000,rate:1.5},
+{name:"3a-Säule",cat:"Vorsorge",amt:588,freq:"m",day:27,mon:1,bal:18000,rate:2.5},
+{name:"3b-Säule",cat:"Vorsorge",amt:200,freq:"m",day:27,mon:1,bal:8000,rate:1.5},
 {name:"ETF-Sparplan",cat:"Anlagen",amt:300,freq:"m",day:28,mon:1,bal:12000,rate:5.5},
 {name:"Benzin / Tanken",cat:"Auto",amt:150,freq:"m",day:15,mon:1},
 {name:"Autoversicherung",cat:"Auto",amt:1200,freq:"y",day:15,mon:3},
@@ -42,6 +42,7 @@ const F=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:D.cur,maximu
 const Fd=n=>new Intl.NumberFormat("de-CH",{style:"currency",currency:D.cur,minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2}).format(n);
 function fix(){
  D.items.forEach((x,i)=>{if(!x.id)x.id="i"+i;if(x.trk===undefined)x.trk=defTrk(x);if(!x.pv)x.pv=x.freq=="y"?"y":"m";if(x.carry===undefined)x.carry=0});
+ D.items.forEach(x=>{if(x.cat=="Vorsorge"&&x.name=="Säule 3a")x.name="3a-Säule";if(x.cat=="Vorsorge"&&x.name=="Säule 3b")x.name="3b-Säule"});
  D.extra=D.extra||[];D.extra.forEach((x,i)=>{if(!x.id)x.id="e"+i});D.goals=D.goals||[];D.goals.forEach((x,i)=>{if(!x.id)x.id="g"+i});
  D.km=D.km||0;D.paid=D.paid||{};D.ist=D.ist||{};D.istIn=D.istIn||{};D.rules=D.rules||{};D.hist=D.hist||{};D.carStash=D.carStash||[];
  D.car=Object.assign({price:0,year:0,age:0,off:0},D.car||{});if(!D.car.mode)D.car.mode=D.car.price>0?"full":"run";
@@ -195,10 +196,10 @@ applyTheme();
 
 
 /* ===== Neu: Unterkategorien, Sparziele, Hauskauf ===== */
-const SUBS={Auto:["Tanken","Versicherung","Steuern","Service / Reparatur","Parkplatz / Leasing","Sonstiges"],Abos:["Handy","Internet / TV","Streaming","Musik","Sonstiges"],Mitgliedschaften:["Fitness","Verein","Sonstiges"],Versicherungen:["Risikolebensversicherung","Rechtsschutz","Haftpflicht / Hausrat","Unfall / Invalidität","Sonstiges"]};
-const GU={Auto:[[/benzin|tank|diesel|laden/i,"Tanken"],[/versicher/i,"Versicherung"],[/steuer/i,"Steuern"],[/service|reparatur|garage|pneu/i,"Service / Reparatur"],[/park|leasing/i,"Parkplatz / Leasing"]],Abos:[[/handy|mobile|natel|swisscom|sunrise|salt|wingo|yallo/i,"Handy"],[/internet|wlan|glasfaser|fiber|\btv\b/i,"Internet / TV"],[/netflix|disney|prime|streaming|sky|teleclub|youtube|dazn/i,"Streaming"],[/spotify|deezer|apple music|musik|tidal/i,"Musik"]],Mitgliedschaften:[[/fitness|gym|yoga|sport|activ/i,"Fitness"],[/verein|club|tcs|sac/i,"Verein"]],Versicherungen:[[/risiko|leben/i,"Risikolebensversicherung"],[/rechts/i,"Rechtsschutz"],[/haftpflicht|hausrat/i,"Haftpflicht / Hausrat"],[/unfall|invalid|erwerbs/i,"Unfall / Invalidität"]]};
+const SUBS={Vorsorge:["3a-Säule","3b-Säule","Sonstiges"],Auto:["Tanken","Versicherung","Steuern","Service / Reparatur","Parkplatz / Leasing","Sonstiges"],Abos:["Handy","Internet / TV","Streaming","Musik","Sonstiges"],Mitgliedschaften:["Fitness","Verein","Sonstiges"],Versicherungen:["Risikolebensversicherung","Rechtsschutz","Haftpflicht / Hausrat","Unfall / Invalidität","Sonstiges"]};
+const GU={Vorsorge:[[/3a/i,"3a-Säule"],[/3b/i,"3b-Säule"]],Auto:[[/benzin|tank|diesel|laden/i,"Tanken"],[/versicher/i,"Versicherung"],[/steuer/i,"Steuern"],[/service|reparatur|garage|pneu/i,"Service / Reparatur"],[/park|leasing/i,"Parkplatz / Leasing"]],Abos:[[/handy|mobile|natel|swisscom|sunrise|salt|wingo|yallo/i,"Handy"],[/internet|wlan|glasfaser|fiber|\btv\b/i,"Internet / TV"],[/netflix|disney|prime|streaming|sky|teleclub|youtube|dazn/i,"Streaming"],[/spotify|deezer|apple music|musik|tidal/i,"Musik"]],Mitgliedschaften:[[/fitness|gym|yoga|sport|activ/i,"Fitness"],[/verein|club|tcs|sac/i,"Verein"]],Versicherungen:[[/risiko|leben/i,"Risikolebensversicherung"],[/rechts/i,"Rechtsschutz"],[/haftpflicht|hausrat/i,"Haftpflicht / Hausrat"],[/unfall|invalid|erwerbs/i,"Unfall / Invalidität"]]};
 function subOf(x){if(x.sub)return x.sub;const g=GU[x.cat];if(g)for(const r of g)if(r[0].test(x.name))return r[1];return SUBS[x.cat]?"Sonstiges":""}
-const GT={haus:"Haus / Wohnung",reise:"Reise",auto:"Auto",anlage:"Investition",sonst:"Sonstiges"};
+const GT={reise:"Reise",ferien:"Ferien",moebel:"Möbel / Einrichtung",auto:"Auto",anlage:"Investition",haus:"Haus / Wohnung (mit Finanzierung)",sonst:"Sonstiges"};
 const hcost=(p,e)=>{const h=Math.max(p-e,0);return h*.05+p*.01+Math.max(h-p*2/3,0)/15};
 function fs(){const s=SUBS[$("nc").value];$("nsw").style.display=s?"":"none";$("ns").innerHTML=s?s.map(x=>"<option>"+x+"</option>").join(""):"";if($("nt"))$("nt").checked=VAR.includes($("nc").value)}
 function gc(g){
@@ -206,7 +207,7 @@ function gc(g){
  const mo=r>0?Math.ceil(left/r):0,md=g.date?(+g.date.slice(0,4))*12+(+g.date.slice(5,7))-1-(T0.getFullYear()*12+T0.getMonth()):null;
  return{hs,need,left,r,mo,md,req:md>0?left/md:null,done:new Date(T0.getFullYear(),T0.getMonth()+mo,1)}}
 function dur(mo){const y=Math.floor(mo/12),m=mo%12;return(y?y+(y==1?" Jahr":" Jahre"):"")+(y&&m?" und ":"")+(m?m+(m==1?" Monat":" Monate"):"")||"weniger als ein Monat"}
-function ag(){const n=$("gn").value.trim(),a=+$("ga").value;if(!n||!(a>0))return;D.goals.push({id:"g"+Date.now(),name:n,type:$("gt").value,target:a,have:0,rate:0,date:""});sv();R()}
+function ag(){const n=$("gn").value.trim(),a=+$("ga").value;if(!n||!(a>0))return;D.goals.push({id:"g"+Date.now(),name:n,type:$("gt").value,target:a,have:0,rate:0,date:$("gm").value||""});sv();R()}
 function ug(i,k,v){D.goals[i][k]=v;sv();R()}
 function dg(i){if(confirm("Dieses Sparziel löschen?")){D.goals.splice(i,1);sv();R()}}
 /* ===== Monate, Budget und Restbudget ===== */
@@ -228,18 +229,21 @@ function carryIn(x,m){
  while(k<m){const s=sumE(e=>e.item==x.id&&e.d.slice(0,7)==k&&ded(e));c=Math.max(0,c+mo(x)-s);k=mAdd(k,1)}
  return c}
 function bstat(x,m){
- if(x.pv=="y"){const y=m.slice(0,4),B=mo(x)*12,S=sumE(e=>e.item==x.id&&e.d.slice(0,4)==y&&ded(e));return{pv:"y",B,S,rest:B-S,carry:0}}
+ if(x.pv=="y"||x.freq=="y"){const y=m.slice(0,4),B=mo(x)*12,S=sumE(e=>e.item==x.id&&e.d.slice(0,4)==y&&e.d.slice(0,7)<=m&&ded(e));return{pv:"y",B,S,rest:B-S,carry:0}}
  const c=x.carry?carryIn(x,m):0,B=mo(x)+c,S=sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e));return{pv:"m",B,S,rest:B-S,carry:c}}
 const trkCats=()=>Object.keys(CC).filter(k=>!SAV.includes(k)&&D.items.some(x=>x.cat==k&&x.trk));
 const pk=(id,m)=>m.slice(0,4)+"-"+(+m.slice(5)-1)+":"+id;
 const allCats=()=>Object.keys(CC).filter(k=>!SAV.includes(k)&&D.items.some(x=>x.cat==k));
 const fixDue=m=>D.items.filter(x=>!SAV.includes(x.cat)&&!x.trk&&(x.freq!="y"||+x.mon==+m.slice(5)));
+const yT=x=>x.trk&&x.freq=="y";
+const yE=e=>!!e.item&&D.items.some(z=>z.id==e.item&&yT(z));
 function gstat(cat,m){
  let B=0,S=0;
  D.items.forEach(x=>{if(x.cat!=cat)return;
-  if(x.trk)B+=mo(x)+(x.carry&&x.pv!="y"?carryIn(x,m):0);
+  if(yT(x)){if(+x.mon==+m.slice(5)){B+=x.amt;S+=sumE(e=>e.item==x.id&&e.d.slice(0,4)==m.slice(0,4)&&e.d.slice(0,7)<=m&&ded(e))}}
+  else if(x.trk)B+=mo(x)+(x.carry&&x.pv!="y"?carryIn(x,m):0);
   else if(x.freq!="y"||+x.mon==+m.slice(5)){B+=x.amt;if(D.paid[pk(x.id,m)])S+=x.amt}});
- S+=sumE(e=>e.cat==cat&&e.d.slice(0,7)==m&&ded(e));
+ S+=sumE(e=>e.cat==cat&&e.d.slice(0,7)==m&&ded(e)&&!yE(e));
  return{B,S,rest:B-S}}
 function mtot(m){let B=0,S=0;allCats().forEach(c=>{const g=gstat(c,m);B+=g.B;S+=g.S});return{B,S,rest:B-S}}
 function budM(){const c=calc();return c.exp+c.taxM}
@@ -297,33 +301,40 @@ function addE(){
 function delE(id){if(!confirm("Diese Ausgabe löschen?"))return;D.exp=D.exp.filter(e=>e.id!=id);sv();R()}
 function spx(id,k,v){const x=D.items.find(z=>z.id==id);if(x){x[k]=v;sv();R()}}
 
-function cmp3(m){
+function cmp3(m,lab){
  const c=calc(),I=c.netM-c.taxM,B=mtot(m).B,S=realM(m),mx=Math.max(I,B,S,1);
  const row=(l,v,col)=>'<div class="hc"><span>'+l+'</span><div class="mb"><i style="width:'+(v/mx*100).toFixed(1)+'%;background:'+col+'"></i><span>'+F(v)+'</span></div></div>';
- return'<div class="card"><h2>Einnahmen, Budget, Ausgaben</h2>'+row("Einnahmen",I,"var(--pos)")+row("Budget",B,"var(--pri)")+row("Ausgaben",S,S>B?"var(--neg)":"var(--warn)")+'</div>'}
+ return'<div class="card"><h2>Einnahmen, Budget, Ausgaben</h2>'+(lab?'<p class="s">'+ML(m)+'</p>':'')+row("Einnahmen",I,"var(--pos)")+row("Budget",B,"var(--pri)")+row("Ausgaben",S,S>B?"var(--neg)":"var(--warn)")+'</div>'}
 function ipn(x){
  const q="'"+x.id+"'",s=bstat(x,U.im);
- return'<div class="pn"><button class="btn sm" onclick="quick('+q+')">Ausgabe erfassen</button><label>Budget anzeigen</label><div class="seg"><button class="'+(x.pv!="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'m\')">Monatlich</button><button class="'+(x.pv=="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'y\')">Jährlich</button></div>'+(x.pv=="y"?'':'<label class="ck" style="margin-top:14px"><input type="checkbox" '+(x.carry?"checked":"")+' onchange="spx('+q+',\'carry\',this.checked?1:0)"> Rest in den nächsten Monat übertragen</label>'+(s.carry>0?'<p class="s" style="margin:6px 0 0">Übertrag aus Vormonaten: '+F(s.carry)+'</p>':''))+'</div>'}
+ return'<div class="pn"><button class="btn sm" onclick="quick('+q+')">Ausgabe erfassen</button>'+(x.freq=="y"?'':'<label>Budget anzeigen</label><div class="seg"><button class="'+(x.pv!="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'m\')">Monatlich</button><button class="'+(x.pv=="y"?"on":"")+'" onclick="spx('+q+',\'pv\',\'y\')">Jährlich</button></div>'+(x.pv=="y"?'':'<label class="ck" style="margin-top:14px"><input type="checkbox" '+(x.carry?"checked":"")+' onchange="spx('+q+',\'carry\',this.checked?1:0)"> Rest in den nächsten Monat übertragen</label>'+(s.carry>0?'<p class="s" style="margin:6px 0 0">Übertrag aus Vormonaten: '+F(s.carry)+'</p>':'')))+'</div>'}
+function subHtml(cat,L,row,sum){
+ const sb=SUBS[cat],subs={},ks=[];
+ L.forEach(p=>{const s=sb?subOf(p.x):"";if(!subs[s]){subs[s]=[];ks.push(s)}subs[s].push(p)});
+ let h="";
+ ks.forEach(s=>{const A=subs[s];
+  if(!s){A.forEach(p=>{h+=row(p,0)});return}
+  if(A.length==1&&A[0].x.name.toLowerCase()==s.toLowerCase()){h+=row(A[0],2);return}
+  h+='<div class="sub"><span>'+esc(s)+'</span><span>'+(A.length>1?sum(A):"")+'</span></div>';
+  A.forEach(p=>{h+=row(p,1)})});
+ return h}
 function igroup(cat,m){
- const mm=+m.slice(5),L=D.items.filter(x=>x.cat==cat&&(x.trk||x.freq!="y"||+x.mon==mm));
+ const mm=+m.slice(5),L=D.items.filter(x=>x.cat==cat&&(x.freq!="y"||+x.mon==mm));
  if(!L.length)return"";
  const g=gstat(cat,m),allFix=L.every(x=>!x.trk),fr=sumE(e=>e.cat==cat&&!e.item&&e.d.slice(0,7)==m&&ded(e));
- const rowF=(x,dt)=>{const k=pk(x.id,m),ok=!!D.paid[k],ex=sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e));
-  return'<div class="rw'+(ok?" done":"")+'"><button class="o'+(ok?" on":"")+'" onclick="tg(\''+k+'\')" aria-label="Bezahlt">'+(ok?"✓":"")+'</button><div>'+(dt?dot(cat):"")+esc(x.name)+(ex>0?'<small>+ '+Fd(ex)+' zusätzlich</small>':'')+'</div><b>'+Fd(x.amt)+'</b><button class="x" onclick="quick(\''+x.id+'\')" aria-label="Weitere Ausgabe erfassen">+</button></div>'};
- const rowT=x=>{const s=bstat(x,m);
-  return'<div class="rw ed" onclick="'+oc(x.id)+'"><div>'+esc(x.name)+mbar(s.S,s.B,s.pv=="y"?" im Jahr":"")+'</div><b class="nw '+(s.rest<0?"neg":"pos")+'">'+F(s.rest)+'</b></div>'+(U.ep==x.id?ipn(x):"")};
+ const rowF=(x,lv)=>{const k=pk(x.id,m),ok=!!D.paid[k],ex=sumE(e=>e.item==x.id&&e.d.slice(0,7)==m&&ded(e));
+  return'<div class="rw l'+lv+(ok?" done":"")+'"><button class="o'+(ok?" on":"")+'" onclick="tg(\''+k+'\')" aria-label="Bezahlt">'+(ok?"✓":"")+'</button><div>'+esc(x.name)+(ex>0?'<small>+ '+Fd(ex)+' zusätzlich</small>':'')+'</div><b>'+Fd(x.amt)+'</b><button class="x" onclick="quick(\''+x.id+'\')" aria-label="Weitere Ausgabe erfassen">+</button></div>'};
+ const rowT=(x,lv)=>{const s=bstat(x,m);
+  return'<div class="rw ed l'+lv+'" onclick="'+oc(x.id)+'"><div>'+esc(x.name)+mbar(s.S,s.B,s.pv=="y"?" im Jahr":"")+'</div><b class="nw '+(s.rest<0?"neg":"pos")+'">'+F(s.rest)+'</b></div>'+(U.ep==x.id?ipn(x):"")};
  if(L.length==1&&!fr){
-  const x=L[0];if(!x.trk)return'<div class="card">'+rowF(x,0)+'</div>';
+  const x=L[0];if(!x.trk)return'<div class="card">'+rowF(x,3)+'</div>';
   const s=bstat(x,m);
   return'<div class="card"><div class="gt ed" onclick="'+oc(x.id)+'"><span>'+dot(cat)+'<b>'+esc(x.name)+'</b></span><b class="nw '+(s.rest<0?"neg":"pos")+'">'+(s.rest<0?"Über Budget "+F(-s.rest):"Rest "+F(s.rest))+'</b></div>'+mbar(s.S,s.B,s.pv=="y"?" im Jahr":"")+(U.ep==x.id?ipn(x):"")+'</div>'}
  const off=L.filter(x=>!x.trk&&!D.paid[pk(x.id,m)]).reduce((s,x)=>s+x.amt,0);
  const rt=allFix?(off>0?"Offen "+F(off):"Alles bezahlt"):(g.rest<0?"Über Budget "+F(-g.rest):"Rest "+F(g.rest));
  let h='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b class="nw '+((allFix?off<=0:g.rest>=0)?"pos":"neg")+'">'+rt+'</b></div>'+mbar(g.S,g.B);
- const sb=SUBS[cat],subs={};L.forEach(x=>{const s=sb?subOf(x):"";(subs[s]=subs[s]||[]).push(x)});
- Object.keys(subs).forEach(k=>{
-  if(k&&subs[k].length>1)h+='<div class="sub"><span>'+esc(k)+'</span></div>';
-  subs[k].forEach(x=>{h+=x.trk?rowT(x):rowF(x,0)})});
- if(fr>0)h+='<div class="rw"><div>Weitere Ausgaben</div><b>−'+Fd(fr)+'</b></div>';
+ h+=subHtml(cat,L.map(x=>({x})),(p,lv)=>p.x.trk?rowT(p.x,lv):rowF(p.x,lv),()=>"");
+ if(fr>0)h+='<div class="rw l1"><div>Weitere Ausgaben</div><b>−'+Fd(fr)+'</b></div>';
  return h+'</div>'}
 function eform(m){
  const t=new Date(),today=t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
@@ -359,23 +370,26 @@ function wcard(){
  if(fs.length>1)h+='<div class="lg"><span>Prognose '+ML(fs[fs.length-1].m)+'</span><b>'+F(fs[fs.length-1].v)+'</b></div>';
  return h+'</div>'}
 
+function hgoals(){
+ if(!D.goals.length)return"";
+ return'<div class="card"><h2>Sparziele</h2>'+D.goals.map(g=>{const r=gc(g),have=Math.min(g.have||0,r.need),m=r.r>0?r.r:(r.req||0);return'<div class="rw ed" onclick="tab(\'goal\')"><div>'+esc(g.name)+'<div class="mb"><i style="width:'+pgw(have,r.need)+'%"></i><span>'+F(have)+' von '+F(r.need)+'</span></div></div><div class="r"><b class="'+(r.left>0?"":"pos")+'">'+(r.left>0?"Noch "+F(r.left):"Erreicht")+'</b>'+(r.left>0&&m>0?'<span class="tg">'+F(m)+' / Mt.</span>':'')+'</div></div>'}).join("")+'</div>'}
 /* ===== Start ===== */
 function tHome(){
  const c=calc(),m=curK(),t=mtot(m),P=[["Steuern (geschätzt)",c.taxM,"#f59e0b"],["Ausgaben (Budget)",c.exp,"#3b82f6"],["Vorsorge und Anlagen",c.sav,"#8b5cf6"],["Frei zum Sparen",Math.max(c.free,0),"#10b981"]];
  const keys=Object.keys(c.by).filter(k=>!SAV.includes(k)).sort((a,b)=>c.by[b]-c.by[a]),tot=c.exp||1,n=new Date(),left=new Date(n.getFullYear(),n.getMonth()+1,0).getDate()-n.getDate();
  let h='<div class="hero"><small>Verbleibendes Budget · '+MN[n.getMonth()]+'</small><b class="big">'+F(t.rest)+'</b><div class="pg wh"><i style="width:'+pgw(t.S,t.B)+'%"></i></div><p class="hs">'+(t.rest<0?"Budget um "+F(-t.rest)+" überschritten":F(t.S)+" von "+F(t.B)+" ausgegeben, noch "+left+(left==1?" Tag":" Tage"))+'</p>';
  h+='<div class="g"><div><b>'+F(t.S)+'</b><span>ausgegeben</span></div><div><b>'+F(t.B)+'</b><span>Budget</span></div><div><b>'+F(c.free)+'</b><span>frei zum Sparen</span></div></div><button class="btn hb2" onclick="goExp()">+ Ausgabe erfassen</button></div>';
- h+=wcard()+cmp3(m);
+ h+=wcard()+hgoals()+cmp3(m,1);
  h+='<div class="card"><h2>Wohin dein Einkommen fliesst</h2><p class="s">Netto im Durchschnitt: '+F(c.netM)+' pro Monat</p>'+bar(P)+P.map(p=>'<div class="lg"><span><u style="background:'+p[2]+'"></u>'+p[0]+'</span><b>'+F(p[1])+'</b></div>').join("")+'</div>';
  return h+'<div class="card"><h2>Ausgaben nach Kategorie</h2>'+donut(c.by,keys,tot)+keys.map(k=>'<div class="lg"><span>'+dot(k)+k+'<em>'+Math.round(c.by[k]/tot*100)+' %</em></span><b>'+F(c.by[k])+'</b></div>').join("")+'</div>'}
 
 /* ===== Budget ===== */
 function pn(i){
  const x=D.items[i],sb=SUBS[x.cat],cs=Object.keys(CC).filter(k=>k!="Auto"||carOn()||x.cat=="Auto");
- return'<div class="pn"><div class="cr"><div><label>Bezeichnung</label><input value="'+esc(x.name)+'" onchange="ue('+i+',\'name\',this.value)"></div><div><label>Betrag '+(x.freq=="y"?"pro Jahr":"pro Monat")+'</label><input type="number" inputmode="decimal" value="'+x.amt+'" onchange="ue('+i+',\'amt\',+this.value)"></div><div><label>Gruppe</label><select onchange="ue('+i+',\'cat\',this.value)">'+cs.map(k=>'<option'+(x.cat==k?" selected":"")+'>'+k+'</option>').join("")+'</select></div>'+(sb?'<div><label>Untergruppe</label><select onchange="ue('+i+',\'sub\',this.value)">'+sb.map(s=>'<option'+(subOf(x)==s?" selected":"")+'>'+s+'</option>').join("")+'</select></div>':'')+'<div><label>Rhythmus</label><select onchange="ue('+i+',\'freq\',this.value)"><option value="m"'+(x.freq=="m"?" selected":"")+'>monatlich</option><option value="y"'+(x.freq=="y"?" selected":"")+'>jährlich</option></select></div><div><label>Zahltag (optional)</label><input type="number" min="1" max="31" inputmode="numeric" value="'+(x.day>0?x.day:"")+'" onchange="ue('+i+',\'day\',+this.value||0)"></div>'+(x.freq=="y"?'<div><label>Monat der Zahlung</label><select onchange="ue('+i+',\'mon\',+this.value)">'+MN.map((m,k)=>'<option value="'+(k+1)+'"'+(x.mon==k+1?" selected":"")+'>'+m+'</option>').join("")+'</select></div>':'')+'</div>'
+ return'<div class="pn"><div class="cr"><div><label>Bezeichnung</label><input placeholder="leer = Untergruppe" value="'+esc(x.name)+'" onchange="ue('+i+',\'name\',this.value)"></div><div><label>Betrag '+(x.freq=="y"?"pro Jahr":"pro Monat")+'</label><input type="number" inputmode="decimal" value="'+x.amt+'" onchange="ue('+i+',\'amt\',+this.value)"></div><div><label>Gruppe</label><select onchange="ue('+i+',\'cat\',this.value)">'+cs.map(k=>'<option'+(x.cat==k?" selected":"")+'>'+k+'</option>').join("")+'</select></div>'+(sb?'<div><label>Untergruppe</label><select onchange="ue('+i+',\'sub\',this.value)">'+sb.map(s=>'<option'+(subOf(x)==s?" selected":"")+'>'+s+'</option>').join("")+'</select></div>':'')+'<div><label>Rhythmus</label><select onchange="ue('+i+',\'freq\',this.value)"><option value="m"'+(x.freq=="m"?" selected":"")+'>monatlich</option><option value="y"'+(x.freq=="y"?" selected":"")+'>jährlich</option></select></div><div><label>Zahltag (optional)</label><input type="number" min="1" max="31" inputmode="numeric" value="'+(x.day>0?x.day:"")+'" onchange="ue('+i+',\'day\',+this.value||0)"></div>'+(x.freq=="y"?'<div><label>Monat der Zahlung</label><select onchange="ue('+i+',\'mon\',+this.value)">'+MN.map((m,k)=>'<option value="'+(k+1)+'"'+(x.mon==k+1?" selected":"")+'>'+m+'</option>').join("")+'</select></div>':'')+'</div>'
   +(SAV.includes(x.cat)?'':'<label>Art</label><div class="seg"><button class="'+(!x.trk?"on":"")+'" onclick="ue('+i+',\'trk\',0)">Fixbetrag</button><button class="'+(x.trk?"on":"")+'" onclick="ue('+i+',\'trk\',1)">Variabel</button></div>')
   +'<div class="two"><button class="btn ghost" onclick="te(null)">Fertig</button><button class="btn ghost dng" onclick="if(confirm(\'Diesen Posten löschen?\'))di('+i+')">Löschen</button></div></div>'}
-function ue(i,k,v){D.items[i][k]=v;if(k=="cat")D.items[i].sub="";if(k=="freq")D.items[i].pv=v=="y"?"y":"m";sv();R()}
+function ue(i,k,v){if(k=="name"&&!String(v).trim()){const sb=SUBS[D.items[i].cat]?subOf(D.items[i]):"";if(sb)v=sb;else return R()}D.items[i][k]=v;if(k=="cat")D.items[i].sub="";if(k=="freq")D.items[i].pv=v=="y"?"y":"m";sv();R()}
 function tBud(){
  const seg=(a,b,va,vb,cur,fa,fb)=>'<div class="seg" style="margin-bottom:12px"><button class="'+(cur==va?"on":"")+'" onclick="'+fa+'">'+a+'</button><button class="'+(cur==vb?"on":"")+'" onclick="'+fb+'">'+b+'</button></div>';
  let h=seg("Kosten","Einkommen","exp","inc",U.bs=="inc"?"inc":"exp","U.bs=\'exp\';R()","U.bs=\'inc\';R()");
@@ -383,51 +397,38 @@ function tBud(){
  const c=calc(),k=U.bv=="y"?12:1;
  h+=seg("Monatlich","Jährlich","m","y",U.bv=="y"?"y":"m","U.bv=\'m\';R()","U.bv=\'y\';R()");
  h+='<div class="card">'+[["Einkommen (netto)",c.netM*k],["Steuern (geschätzt)",-c.taxM*k],["Ausgaben",-c.exp*k],["Vorsorge und Anlagen",-c.sav*k]].map(r=>'<div class="lg"><span>'+r[0]+'</span><b>'+(r[1]<0?"−":"")+F(Math.abs(r[1]))+'</b></div>').join("")+'<div class="lg tot"><b>Frei zum Sparen</b><b class="'+(c.free<0?"neg":"pos")+'">'+F(c.free*k)+'</b></div></div>';
- const row=(x,i,dt)=>'<div class="rw ed" onclick="te(\''+x.id+'\')"><div>'+(dt?dot(x.cat):"")+esc(x.name)+'</div><b>'+F(mo(x)*k)+'</b><span class="chev">›</span></div>'+(U.ed==x.id?pn(i):"");
+const row=(p,lv)=>{const x=p.x;return'<div class="rw ed l'+lv+'" onclick="te(\''+x.id+'\')"><div>'+(lv==3?dot(x.cat):"")+esc(x.name)+'</div><b>'+F(mo(x)*k)+'</b><span class="chev">›</span></div>'+(U.ed==x.id?pn(p.i):"")};
  Object.keys(CC).forEach(cat=>{
-  const L=D.items.map((x,i)=>[x,i]).filter(p=>p[0].cat==cat);if(!L.length)return;
-  if(L.length==1){h+='<div class="card">'+row(L[0][0],L[0][1],1)+'</div>';return}
-  const sb=SUBS[cat],subs={};L.forEach(p=>{const s=sb?subOf(p[0]):"";(subs[s]=subs[s]||[]).push(p)});
-  h+='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b>'+F(c.by[cat]*k)+'</b></div>';
-  Object.keys(subs).forEach(s=>{
-   if(s&&subs[s].length>1)h+='<div class="sub"><span>'+esc(s)+'</span><span>'+F(subs[s].reduce((t,p)=>t+mo(p[0]),0)*k)+'</span></div>';
-   subs[s].forEach(p=>{h+=row(p[0],p[1],0)})});
-  h+='</div>'});
+  const L=D.items.map((x,i)=>({x,i})).filter(p=>p.x.cat==cat);if(!L.length)return;
+  if(L.length==1){h+='<div class="card">'+row(L[0],3)+'</div>';return}
+  h+='<div class="card"><div class="gt"><span>'+dot(cat)+'<b>'+cat+'</b></span><b>'+F(c.by[cat]*k)+'</b></div>'+subHtml(cat,L,row,A=>F(A.reduce((t,p)=>t+mo(p.x),0)*k))+'</div>'});
  if(!U.ab)return h+'<button class="btn" onclick="U.ab=1;R()">+ Posten hinzufügen</button>';
- return h+'<div class="card"><h2>Neuer Posten</h2><label>Bezeichnung</label><input id="nn" placeholder="z. B. Spotify"><div class="cr"><div><label>Gruppe</label><select id="nc" onchange="fs()">'+Object.keys(CC).filter(k=>k!="Auto"||carOn()).map(k=>'<option>'+k+'</option>').join("")+'</select></div><div><label>Betrag</label><input id="na" type="number" inputmode="decimal"></div><div id="nsw" style="display:none"><label>Untergruppe</label><select id="ns"></select></div><div><label>Rhythmus</label><select id="nf" onchange="$(\'nm\').parentNode.style.display=this.value==\'y\'?\'\':\'none\'"><option value="m">monatlich</option><option value="y">jährlich</option></select></div><div><label>Zahltag (optional)</label><input id="nd" type="number" min="1" max="31" inputmode="numeric" placeholder="automatisch"></div><div style="display:none"><label>Monat der Zahlung</label><select id="nm">'+MN.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("")+'</select></div></div><label class="ck" style="margin-top:14px"><input id="nt" type="checkbox"> Variabel (Budgetbalken statt Häkchen)</label><button class="btn" onclick="ai()">Hinzufügen</button><button class="lk" onclick="U.ab=0;R()">Abbrechen</button></div>'}
-function ai(){const n=$("nn").value.trim(),a=+$("na").value,k=$("nc").value;if(!n||!(a>0))return;const f=$("nf").value;D.items.push({id:"n"+Date.now(),name:n,cat:k,sub:SUBS[k]?$("ns").value:"",amt:a,freq:f,day:+$("nd").value||0,mon:+$("nm").value,bal:0,rate:k=="Vorsorge"?2:5,trk:$("nt").checked?1:0,pv:f=="y"?"y":"m",carry:0});U.ab=0;sv();R()}
+ return h+'<div class="card"><h2>Neuer Posten</h2><label>Bezeichnung (leer = Name der Untergruppe)</label><input id="nn" placeholder="z. B. Spotify"><div class="cr"><div><label>Gruppe</label><select id="nc" onchange="fs()">'+Object.keys(CC).filter(k=>k!="Auto"||carOn()).map(k=>'<option>'+k+'</option>').join("")+'</select></div><div><label>Betrag</label><input id="na" type="number" inputmode="decimal"></div><div id="nsw" style="display:none"><label>Untergruppe</label><select id="ns"></select></div><div><label>Rhythmus</label><select id="nf" onchange="$(\'nm\').parentNode.style.display=this.value==\'y\'?\'\':\'none\'"><option value="m">monatlich</option><option value="y">jährlich</option></select></div><div><label>Zahltag (optional)</label><input id="nd" type="number" min="1" max="31" inputmode="numeric" placeholder="automatisch"></div><div style="display:none"><label>Monat der Zahlung</label><select id="nm">'+MN.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join("")+'</select></div></div><label class="ck" style="margin-top:14px"><input id="nt" type="checkbox"> Variabel (Budgetbalken statt Häkchen)</label><button class="btn" onclick="ai()">Hinzufügen</button><button class="lk" onclick="U.ab=0;R()">Abbrechen</button></div>'}
+function ai(){let n=$("nn").value.trim();const a=+$("na").value,k=$("nc").value,sub=SUBS[k]?$("ns").value:"";if(!n&&sub)n=sub;if(!n||!(a>0))return;const f=$("nf").value;D.items.push({id:"n"+Date.now(),name:n,cat:k,sub:sub,amt:a,freq:f,day:+$("nd").value||0,mon:+$("nm").value,bal:0,rate:k=="Vorsorge"?2:5,trk:$("nt").checked?1:0,pv:f=="y"?"y":"m",carry:0});U.ab=0;sv();R()}
 
 /* ===== Vermögen ===== */
 function lchart(ser){
  const v=ser.map(p=>p.v),idx=k=>(+k.slice(0,4))*12+(+k.slice(5)-1),i0=idx(ser[0].m),span=Math.max(idx(ser[ser.length-1].m)-i0,1),mn=Math.min(...v),mx=Math.max(...v),pad=(mx-mn)*.12||Math.abs(mx)*.05||1,lo=mn-pad,hi=mx+pad,W=320,H=120,f=n=>n.toFixed(1);
  const P=ser.map(p=>[(idx(p.m)-i0)/span*W,H-(p.v-lo)/(hi-lo)*H]),pl=P.map(p=>f(p[0])+","+f(p[1])).join(" "),L=P[P.length-1];
  return'<svg viewBox="0 0 330 130" style="width:100%;display:block;overflow:visible"><polygon points="0,'+H+' '+pl+' '+W+','+H+'" fill="var(--pri)" opacity=".12"/><polyline points="'+pl+'" fill="none" stroke="var(--pri)" stroke-width="2.5" stroke-linejoin="round"/><circle cx="'+f(L[0])+'" cy="'+f(L[1])+'" r="5" fill="var(--gold)"/></svg><div class="ax"><span>'+ML(ser[0].m)+'</span><span>'+ML(ser[ser.length-1].m)+'</span></div>'}
-function wform(first){
- const w=wmodel(),r=v=>Math.round(v);
- const rows=[["c","Konto / Cash",first?D.cash:w.cash]].concat(D.items.filter(x=>SAV.includes(x.cat)).map(x=>[x.id,x.name,first?(+x.bal||0):w.inv[x.id]]));
- return'<div class="card"><h2>'+(first?"Startvermögen festlegen":"Kontostände abgleichen")+'</h2><p class="s">'+(first?"Trag ein, was du heute auf deinen Konten hast. Danach rechnet die App jeden Monat Einnahmen und Ausgaben dazu.":"Trag die echten Kontostände von heute ein. Der Verlauf läuft danach mit diesen Werten weiter.")+'</p>'+(first?'<label for="wm">Beginn der Aufzeichnung</label><input id="wm" type="month" value="'+curK()+'" max="'+curK()+'">':'')+rows.map(q=>'<div class="rw"><div>'+esc(q[1])+'</div><input id="wb-'+q[0]+'" type="number" inputmode="decimal" value="'+r(q[2])+'"></div>').join("")+'<button class="btn" onclick="setBal('+(first?1:0)+')">Speichern</button>'+'</div>'}
-function setBal(first){
- const w=wmodel();if(!first)D.past=(D.past||[]).concat(w.pts.slice(0,-1));
- D.cash=+$("wb-c").value||0;D.items.forEach(x=>{if(SAV.includes(x.cat)){const e=$("wb-"+x.id);if(e)x.bal=+e.value||0}});
- D.start=first&&/^\d{4}-\d{2}$/.test($("wm").value)?$("wm").value:curK();D.started=1;sv();R();bn("Kontostände gespeichert");setTimeout(()=>bn(""),2500)}
-function mser(y){const c=calc(),S=[];for(let m=0;m<12;m++){const o=outM(mkey(y,m));S.push({m,i:c.netM,e:o.out,real:o.real})}return S}
-function mchart(){
- const y=U.by,S=mser(y),H=130,g=320/12,bw=9,mx=Math.max(...S.map(p=>Math.max(p.i,p.e)),1),Y=v=>H-v/mx*H,f=n=>n.toFixed(1);
- let s='<svg viewBox="0 0 320 150" style="width:100%;display:block;margin-top:8px">';
- [0,.5,1].forEach(q=>{s+='<line x1="0" x2="320" y1="'+f(H-q*H)+'" y2="'+f(H-q*H)+'" stroke="var(--ln)" stroke-width="1"/>'});
- S.forEach(p=>{const x=p.m*g+g/2;
-  s+='<rect x="'+f(x-bw-1)+'" y="'+f(Y(p.i))+'" width="'+bw+'" height="'+f(H-Y(p.i))+'" rx="2" fill="var(--pos)"/><rect x="'+f(x+1)+'" y="'+f(Y(p.e))+'" width="'+bw+'" height="'+f(H-Y(p.e))+'" rx="2" fill="var(--neg)"/>';
-  if(p.real)s+='<circle cx="'+f(x+1+bw/2)+'" cy="'+f(Y(p.e)-5)+'" r="2.5" fill="var(--gold)"/>';
-  s+='<text x="'+f(x)+'" y="145" class="t1" style="font-size:8px">'+MN[p.m][0]+'</text>'});
- const ai=S.reduce((t,p)=>t+p.i,0)/12,ae=S.reduce((t,p)=>t+p.e,0)/12;
- return'<div class="card"><div class="mn"><button onclick="U.by--;R()" aria-label="Voriges Jahr">‹</button><h2>Einnahmen und Ausgaben '+y+'</h2><button onclick="U.by++;R()" aria-label="Nächstes Jahr">›</button></div>'+s+'</svg><div class="lg"><span><u style="background:var(--pos)"></u>Einnahmen<em>Ø pro Monat</em></span><b>'+F(ai)+'</b></div><div class="lg"><span><u style="background:var(--neg)"></u>Ausgaben<em>Ø pro Monat</em></span><b>'+F(ae)+'</b></div><p class="s" style="margin:8px 0 0">Ausgaben mit Steuern, ohne Vorsorge und Anlagen. Der gelbe Punkt markiert Monate mit erfassten Ausgaben, die anderen rechnen mit dem Budget.</p></div>'}
+function wform(md){
+ const w=wmodel(),r=v=>Math.round(v),first=md==1,corr=md==2,sy=md==0;
+ const rows=[["c","Konto / Cash",sy?w.cash:D.cash]].concat(D.items.filter(x=>SAV.includes(x.cat)).map(x=>[x.id,x.name,sy?w.inv[x.id]:(+x.bal||0)]));
+ const tt=first?"Startvermögen festlegen":corr?"Startvermögen korrigieren":"Kontostände abgleichen";
+ const tx=first?"Trag ein, was du heute auf deinen Konten hast. Danach rechnet die App jeden Monat Einnahmen und Ausgaben dazu.":corr?"Hier änderst du die Werte vom Start, falls etwas nicht stimmt. Alles danach wird neu berechnet.":"Trag die echten Kontostände von heute ein. Der Verlauf läuft danach mit diesen Werten weiter.";
+ return'<div class="card"><h2>'+tt+'</h2><p class="s">'+tx+'</p>'+(sy?'':'<label for="wm'+md+'">Beginn der Aufzeichnung</label><input id="wm'+md+'" type="month" value="'+(first?curK():D.start)+'" max="'+curK()+'">')+rows.map(q=>'<div class="rw"><div>'+esc(q[1])+'</div><input id="wb'+md+'-'+q[0]+'" type="number" inputmode="decimal" value="'+r(q[2])+'"></div>').join("")+'<button class="btn" onclick="setBal('+md+')">Speichern</button>'+(corr?'<button class="lk" onclick="U.sc=0;R()">Abbrechen</button>':'')+'</div>'}
+function setBal(md){
+ const w=wmodel(),P="wb"+md+"-";if(md==0)D.past=(D.past||[]).concat(w.pts.slice(0,-1));
+ D.cash=+$(P+"c").value||0;D.items.forEach(x=>{if(SAV.includes(x.cat)){const e=$(P+x.id);if(e)x.bal=+e.value||0}});
+ if(md==0)D.start=curK();else{const v=$("wm"+md).value;D.start=/^\d{4}-\d{2}$/.test(v)?v:curK()}
+ D.started=1;U.sc=0;sv();R();bn("Gespeichert");setTimeout(()=>bn(""),2500)}
 function tWea(){
  const seg='<div class="seg" style="margin-bottom:14px"><button class="'+(U.ws!="prog"?"on":"")+'" onclick="U.ws=\'ov\';R()">Übersicht</button><button class="'+(U.ws=="prog"?"on":"")+'" onclick="U.ws=\'prog\';R()">Prognose</button></div>';
  if(U.ws=="prog")return seg+'<div class="card" id="wc"></div><div class="card"><h2>Zeitraum</h2><div class="seg" style="margin-top:8px">'+[1,5,10,20,30].map(y=>'<button class="'+(D.yrs==y?"on":"")+'" onclick="D.yrs='+y+';sv();R()">'+y+' J.</button>').join("")+'</div></div><div class="card"><h2>Rendite pro Konto</h2><p class="s">Erwartete Rendite pro Jahr für die Prognose.</p>'+D.items.map((x,i)=>[x,i]).filter(p=>SAV.includes(p[0].cat)).map(p=>'<div class="rw"><div>'+esc(p[0].name)+'<small>'+F(mo(p[0]))+' pro Monat</small></div><input class="sm" type="number" step="0.1" inputmode="decimal" value="'+(p[0].rate||0)+'" onchange="ue('+p[1]+',\'rate\',+this.value)"><span class="u">%</span></div>').join("")+'<div class="rw"><div>Konto / Cash</div><input class="sm" type="number" step="0.1" inputmode="decimal" value="'+D.cashR+'" onchange="D.cashR=+this.value;sv();R()"><span class="u">%</span></div></div>';
  let h=seg+wcard();
  const w=wmodel();
  h+='<div class="card"><h2>Konten</h2>'+[["Konto / Cash",w.cash],...w.sav.map(x=>[x.name,w.inv[x.id]])].map(q=>'<div class="rw"><div>'+esc(q[0])+'</div><b>'+F(q[1])+'</b></div>').join("")+'<button class="btn ghost" onclick="tab(\'set\')">Kontostände abgleichen</button></div>';
- return h+mchart()}
+ return h+cmp3(curK(),1)}
 function wc(){
  const{A,S}=proj(),n=D.yrs*12,end=S.reduce((s,o)=>s+o[n][0],0),inn=S.reduce((s,o)=>s+o[n][1],0),y=new Date().getFullYear();
  $("wc").innerHTML='<h2>Vermögen in '+yl(D.yrs)+'</h2><b class="big2">'+F(end)+'</b><p class="s">Eingezahlt '+F(inn)+', erwartete Rendite '+F(end-inn)+'. Die Prognose ist eine Annahme und keine Garantie.</p>'+area(S)+'<div class="ax"><span>'+y+'</span><span>'+(y+D.yrs)+'</span></div>'+A.map((a,k)=>'<div class="lg"><span><u style="background:'+PC[k%PC.length]+'"></u>'+esc(a.n)+'<em>'+a.r+' % p. a.</em></span><b>'+F(S[k][n][0])+'</b></div>').join("")}
@@ -448,11 +449,12 @@ function gcard(g,i){
  let when="–";if(r.left<=0)when="erreicht";else if(r.r>0)when=MN[r.done.getMonth()].slice(0,3)+" "+r.done.getFullYear();
  h+='<div class="tiles">'+tile(r.r>0?F(r.r):(r.req?F(r.req):"–"),r.r>0?"Sparrate / Mt.":(r.req?"nötig / Mt.":"Sparrate / Mt."))+tile(r.left<=0?"–":(r.r>0?dur(r.mo):"–"),"Dauer")+tile(when,"erreicht im")+'</div>';
  if(r.left>0&&r.r>0)h+=gchart(g,r);
- else if(r.left>0)h+='<p class="s" style="margin:10px 0 0">'+(r.md>0?"Bis "+MN[+g.date.slice(5,7)-1]+" "+g.date.slice(0,4)+" musst du "+F(r.req)+" pro Monat sparen.":"Trag eine Sparrate oder ein Zieldatum ein, dann rechne ich die Dauer aus.")+'</p>';
+ if(r.left>0&&r.r>0&&r.md>0)h+='<p class="s" style="margin:10px 0 0">'+(r.req>r.r+.5?"Für "+MN[+g.date.slice(5,7)-1]+" "+g.date.slice(0,4)+" musst du "+F(r.req)+" pro Monat sparen.":"Mit deiner Sparrate erreichst du den Zielmonat rechtzeitig.")+'</p>';
+ else if(r.left>0)h+='<p class="s" style="margin:10px 0 0">'+(r.md>0?"Bis "+MN[+g.date.slice(5,7)-1]+" "+g.date.slice(0,4)+" musst du "+F(r.req)+" pro Monat sparen.":"Trag eine Sparrate oder einen Zielmonat ein, dann rechne ich es aus.")+'</p>';
  if(r.left>0)h+='<div class="dep"><input id="gd'+i+'" type="number" inputmode="decimal" placeholder="Einzahlung"><button class="btn sm" onclick="gdep('+i+')">Einzahlen</button></div>';
  h+='<button class="lk" onclick="U.ge=U.ge==\''+g.id+'\'?null:\''+g.id+'\';R()">'+(U.ge==g.id?"Schliessen":"Bearbeiten")+'</button>';
  if(U.ge==g.id){
-  h+='<div class="pn"><div class="cr">'+f("name","Name","text",esc(g.name))+f("target",r.hs?"Kaufpreis":"Zielbetrag","number",g.target)+f("have","Bereits gespart","number",g.have||0)+f("rate","Sparrate pro Monat","number",g.rate||"")+'</div><label>Zieldatum (optional)</label><input type="month" value="'+(g.date||"")+'" onchange="ug('+i+',\'date\',this.value)">';
+  h+='<div class="pn"><div class="cr">'+f("name","Name","text",esc(g.name))+f("target",r.hs?"Kaufpreis":"Zielbetrag","number",g.target)+f("have","Bereits gespart","number",g.have||0)+f("rate","Sparrate pro Monat","number",g.rate||"")+'</div><label>Zielmonat (optional)</label><input type="month" value="'+(g.date||"")+'" onchange="ug('+i+',\'date\',this.value)">';
   const t=x=>'<p class="s" style="color:var(--tx);margin:10px 0 0">'+x+'</p>';
   if(r.hs&&P>0){
    const ek=P*.2,cost=hcost(P,ek),hv=have/.2;
@@ -470,7 +472,7 @@ function tGoals(){
  if(D.goals.length)h+='<div class="card"><h2>Deine Sparziele</h2><b class="big2">'+F(sh)+'</b><p class="s">von '+F(sn)+' gespart ('+(sn>0?Math.round(sh/sn*100):0)+' %)</p><div class="pg"><i style="width:'+(sn>0?Math.min(100,sh/sn*100):0).toFixed(1)+'%"></i></div><p class="s" style="margin:8px 0 0">Frei zum Sparen: '+F(c.free)+' pro Monat. Deine Ziele brauchen zusammen '+F(tot)+' pro Monat'+(tot>Math.max(c.free,0)?', das ist mehr, als du frei sparen kannst.':'.')+'</p></div>';
  h+=D.goals.map(gcard).join("");
  if(!U.ga&&D.goals.length)return h+'<button class="btn" onclick="U.ga=1;R()">+ Neues Sparziel</button>';
- return h+'<div class="card"><h2>Neues Sparziel</h2><p class="s">Zum Beispiel Haus, Reise, neues Auto oder eine Investition.</p><label>Name</label><input id="gn" placeholder="z. B. Eigenheim"><div class="cr"><div><label>Art</label><select id="gt">'+Object.keys(GT).map(k=>'<option value="'+k+'">'+GT[k]+'</option>').join("")+'</select></div><div><label>Zielbetrag / Kaufpreis</label><input id="ga" type="number" inputmode="decimal"></div></div><button class="btn" onclick="ag()">Sparziel hinzufügen</button>'+(D.goals.length?'<button class="lk" onclick="U.ga=0;R()">Abbrechen</button>':'')+'</div>'}
+ return h+'<div class="card"><h2>Neues Sparziel</h2><p class="s">Auch kleine Ziele wie Möbel, Ferien oder eine Reise. Mit einem Zielmonat rechnet die App aus, wie viel du pro Monat sparen musst.</p><label>Name</label><input id="gn" placeholder="z. B. Eigenheim"><div class="cr"><div><label>Art</label><select id="gt">'+Object.keys(GT).map(k=>'<option value="'+k+'">'+GT[k]+'</option>').join("")+'</select></div><div><label>Zielbetrag / Kaufpreis</label><input id="ga" type="number" inputmode="decimal"></div><div><label>Zielmonat (optional)</label><input id="gm" type="month" min="'+curK()+'"></div></div><button class="btn" onclick="ag()">Sparziel hinzufügen</button>'+(D.goals.length?'<button class="lk" onclick="U.ga=0;R()">Abbrechen</button>':'')+'</div>'}
 
 /* ===== Mehr, Einstellungen, Navigation ===== */
 function setCar(on){
@@ -483,7 +485,7 @@ function konto(){
  return'<div class="card"><h2>Konto</h2><p class="s">Angemeldet als '+esc(auth.currentUser?auth.currentUser.email:"")+'. Deine Daten werden mit allen Geräten synchronisiert.</p><button class="btn ghost" onclick="auth.signOut()">Abmelden</button><button class="btn ghost dng" onclick="wipe()">Alle Einträge löschen und leer starten</button></div>'}
 function tSet(){
  const th=(v,l)=>'<button class="'+(TH==v?"on":"")+'" onclick="setTheme(\''+v+'\')">'+l+'</button>';
- return'<div class="card"><h2>Darstellung</h2><div class="seg">'+th("auto","Automatisch")+th("light","Hell")+th("dark","Dunkel")+'</div><label>Währung</label><select onchange="D.cur=this.value;sv();R()">'+["CHF","EUR","USD","GBP"].map(c=>'<option'+(D.cur==c?" selected":"")+'>'+c+'</option>').join("")+'</select></div>'+wform(!D.started)+carSw()+konto()}
+ return'<div class="card"><h2>Darstellung</h2><div class="seg">'+th("auto","Automatisch")+th("light","Hell")+th("dark","Dunkel")+'</div><label>Währung</label><select onchange="D.cur=this.value;sv();R()">'+["CHF","EUR","USD","GBP"].map(c=>'<option'+(D.cur==c?" selected":"")+'>'+c+'</option>').join("")+'</select></div>'+(!D.started?wform(1):(U.sc?wform(2):'<div class="card"><h2>Startvermögen</h2><div class="lg"><span>Beginn</span><b>'+ML(D.start)+'</b></div><button class="btn ghost" onclick="U.sc=1;R()">Startvermögen bearbeiten</button></div>')+wform(0))+carSw()+konto()}
 function tMore(){
  const t=new Date(),L=due(t.getFullYear(),t.getMonth()).filter(l=>!l.ok).length,n=tipsList().filter(x=>x[0]!="good").length;
  const r=(p,a,s)=>'<button class="lr" onclick="tab(\''+p+'\')"><span><b>'+a+'</b><small>'+s+'</small></span><i>›</i></button>';

@@ -157,3 +157,12 @@ nav .on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
 .hc>span{font-size:13.5px;color:var(--mu)}.hc .mb{margin:0}.hc .mb i{opacity:.5}
 .gt+.mb{margin-top:2px}
 .rw>div>.mb{margin:6px 0 0}
+
+/* v11: Schriftgrössen Gruppe > Untergruppe > Bezeichnung */
+.gt{font-size:17px}
+.sub{font-size:15px;font-weight:800;letter-spacing:0;text-transform:none;color:var(--tx);padding:14px 0 2px}
+.rw.l0,.rw.l1{font-size:14px}.rw.l1{padding-left:12px}
+.rw.l2{font-size:15px;font-weight:700}
+.rw.l3{font-size:16.5px;font-weight:800}
+.rw>div{overflow-wrap:anywhere}
+.rw.l3{font-size:15.5px}
